@@ -252,12 +252,14 @@ function loadLevel(nextLevel) {
   toolsLeft = { hammer: 1, freeze: 1, bomb: 1 };
   spawnedEnemies = 0;
   defeatedEnemies = 0;
-  totalEnemies = 6 + Math.ceil(level * 0.7);
-  spawnInterval = Math.max(0.68, 1.18 - level * 0.035);
-  spawnTimer = 0.5;
+  totalEnemies = level === 2 ? 12 : 6 + Math.ceil(level * 0.7);
+  spawnInterval = level === 2 ? 0.82 : Math.max(0.68, 1.18 - level * 0.035);
+  spawnTimer = level === 2 ? 0.25 : 0.5;
   lastHintAt = performance.now();
 
-  const count = Math.min(14 + level * 2, BOARD.rows * BOARD.cols - 3);
+  const count = level === 2
+    ? 24
+    : Math.min(14 + level * 2, BOARD.rows * BOARD.cols - 3);
   const layout = generateSolvableLayout(BOARD.rows, BOARD.cols, count, 5000 + level * 7919);
   carrots = layout.map((item, index) => createCarrot(item, index));
   carrotByCell = new Map(carrots.map(c => [cellKey(c.row, c.col), c]));
@@ -267,8 +269,10 @@ function loadLevel(nextLevel) {
   DOM.tutorial.classList.remove('hidden');
   DOM.tutorialText.textContent = level === 1
     ? '尖端就是方向。萝卜飞到道路后，会逆着怪物前进方向一路穿刺！'
-    : '怪物有血量：同一根萝卜会沿道路逆行，依次穿刺途中每个敌人。';
-  tutorialDismissTimer = level === 1 ? 7 : 3.5;
+    : level === 2
+      ? '第 2 关：怪物更多更快，还有高速怪和高血怪，注意发射顺序！'
+      : '怪物有血量：同一根萝卜会沿道路逆行，依次穿刺途中每个敌人。';
+  tutorialDismissTimer = level === 1 ? 7 : level === 2 ? 3 : 3.5;
   updateHUD();
   updateToolButtons();
 }
@@ -377,7 +381,8 @@ function createEnemy(type = 'normal') {
     }
   }
 
-  const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045));
+  const level2HpBoost = level === 2 ? 1.18 : 1;
+  const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045) * level2HpBoost);
   const label = makeNumberLabel(maxHp);
   label.position.set(0, 0.82, 0.5);
   group.add(label);
@@ -392,7 +397,7 @@ function createEnemy(type = 'normal') {
     label,
     hp: maxHp,
     maxHp,
-    speed: config.speed * (1 + (level - 1) * 0.018),
+    speed: config.speed * (1 + (level - 1) * 0.018) * (level === 2 ? 1.08 : 1),
     distance: 0,
     active: true,
     radius: config.radius,
@@ -408,6 +413,12 @@ function enemyConfig(type) {
 }
 
 function chooseEnemyType(index) {
+  if (level === 2) {
+    if (index === 5 || index === 11) return 'tank';
+    if (index === 2 || index === 4 || index === 8) return 'fast';
+    return 'normal';
+  }
+
   if (level >= 4 && index % 6 === 5) return 'tank';
   if (level >= 3 && index % 5 === 3) return 'fast';
   return 'normal';
