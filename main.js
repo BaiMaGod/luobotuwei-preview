@@ -37,7 +37,8 @@ const WORLD = { left: -8, right: 8, bottom: -13.5, top: 13.5 };
 const BOARD = { rows: 6, cols: 5, cell: 1.48, centerY: 0.6 };
 const ROAD = { x: 6.05, topY: 7.15, bottomY: -7.15, leftX: -6.05, width: 1.2 };
 const PROJECTILE_SPEED = 16;
-const BASE_DAMAGE = 12;
+const PATH_PROJECTILE_SPEED = 7.2;
+const BASE_DAMAGE = 10;
 const MAX_LEVEL = 10;
 
 let scene;
@@ -70,6 +71,7 @@ let toolsLeft = { hammer: 1, freeze: 1, bomb: 1 };
 let freezeTimer = 0;
 let shots = 0;
 let hits = 0;
+let successfulShots = 0;
 let combo = 0;
 let bestCombo = 0;
 let comboTimer = 0;
@@ -240,6 +242,7 @@ function loadLevel(nextLevel) {
   lives = 3;
   shots = 0;
   hits = 0;
+  successfulShots = 0;
   combo = 0;
   bestCombo = 0;
   comboTimer = 0;
@@ -263,8 +266,8 @@ function loadLevel(nextLevel) {
   DOM.resultModal.classList.add('hidden');
   DOM.tutorial.classList.remove('hidden');
   DOM.tutorialText.textContent = level === 1
-    ? '尖端就是方向。前方没有萝卜挡住时，点击就会直线飞出去！'
-    : '怪物不会等你：既要找出口，也要抓住命中时机。';
+    ? '尖端就是方向。萝卜飞到道路后，会逆着怪物前进方向一路穿刺！'
+    : '怪物有血量：同一根萝卜会沿道路逆行，依次穿刺途中每个敌人。';
   tutorialDismissTimer = level === 1 ? 7 : 3.5;
   updateHUD();
   updateToolButtons();
@@ -399,9 +402,9 @@ function createEnemy(type = 'normal') {
 }
 
 function enemyConfig(type) {
-  if (type === 'fast') return { hp: 8, speed: 2.05, radius: 0.45, color: 0xb56fff };
-  if (type === 'tank') return { hp: 18, speed: 0.95, radius: 0.56, color: 0x67a4d8 };
-  return { hp: 10, speed: 1.35, radius: 0.48, color: 0xe8675b };
+  if (type === 'fast') return { hp: 24, speed: 2.05, radius: 0.45, color: 0xb56fff };
+  if (type === 'tank') return { hp: 55, speed: 0.95, radius: 0.56, color: 0x67a4d8 };
+  return { hp: 32, speed: 1.35, radius: 0.48, color: 0xe8675b };
 }
 
 function chooseEnemyType(index) {
@@ -470,8 +473,10 @@ function launchCarrot(carrot, byHammer = false) {
     dir,
     type: carrot.type,
     active: true,
-    remainingHits: carrot.type === 'pierce' ? 3 : 1,
+    mode: 'flight',
+    pathDistance: null,
     alreadyHit: new Set(),
+    hasHit: false,
   });
   playTone(feverTimer > 0 ? 660 : 520, 0.045, 'triangle', 0.035);
   tutorialDismissTimer = Math.min(tutorialDismissTimer, 0.7);
@@ -580,43 +585,73 @@ function updateProjectiles(dt) {
   for (const projectile of projectiles) {
     if (!projectile.active) continue;
 
-    const speed = PROJECTILE_SPEED * (feverTimer > 0 ? 1.3 : 1);
-    projectile.group.position.x += projectile.dir.x * speed * dt;
-    projectile.group.position.y += projectile.dir.y * speed * dt;
+    if (projectile.mode === 'flight') {
+      const speed = PROJECTILE_SPEED * (feverTimer > 0 ? 1.3 : 1);
+      projectile.group.position.x += projectile.dir.x * speed * dt;
+      projectile.group.position.y += projectile.dir.y * speed * dt;
+
+      const entry = nearestPointOnPath(projectile.group.position.x, projectile.group.position.y);
+      if (entry.offset <= ROAD.width * 0.68) {
+        projectile.mode = 'path';
+        projectile.pathDistance = entry.distance;
+        projectile.group.position.set(entry.point.x, entry.point.y, 0.55);
+        alignCarrotToPath(projectile);
+        createBurst(entry.point.x, entry.point.y, 0xffd66b, 5);
+      } else if (
+        projectile.group.position.x < WORLD.left - 1 ||
+        projectile.group.position.x > WORLD.right + 1 ||
+        projectile.group.position.y < WORLD.bottom - 1 ||
+        projectile.group.position.y > WORLD.top + 1
+      ) {
+        deactivateProjectile(projectile);
+        continue;
+      }
+    } else if (projectile.mode === 'path') {
+      const pathSpeed = PATH_PROJECTILE_SPEED * (feverTimer > 0 ? 1.25 : 1);
+      projectile.pathDistance -= pathSpeed * dt;
+
+      if (projectile.pathDistance <= 0) {
+        deactivateProjectile(projectile);
+        continue;
+      }
+
+      const pos = pointAtDistance(projectile.pathDistance);
+      projectile.group.position.set(pos.x, pos.y, 0.55);
+      alignCarrotToPath(projectile);
+    }
+
+    if (projectile.mode !== 'path') continue;
 
     for (const enemy of enemies) {
       if (!enemy.active || projectile.alreadyHit.has(enemy)) continue;
+
       const dx = projectile.group.position.x - enemy.group.position.x;
       const dy = projectile.group.position.y - enemy.group.position.y;
-      const hitRadius = enemy.radius + 0.38;
+      const hitRadius = enemy.radius + 0.42;
 
       if (dx * dx + dy * dy <= hitRadius * hitRadius) {
         projectile.alreadyHit.add(enemy);
         hitEnemy(enemy, projectile);
-        projectile.remainingHits--;
-        if (projectile.remainingHits <= 0) {
-          deactivateProjectile(projectile);
-          break;
-        }
       }
-    }
-
-    if (
-      projectile.group.position.x < WORLD.left - 1 ||
-      projectile.group.position.x > WORLD.right + 1 ||
-      projectile.group.position.y < WORLD.bottom - 1 ||
-      projectile.group.position.y > WORLD.top + 1
-    ) {
-      deactivateProjectile(projectile);
     }
   }
 
   projectiles = projectiles.filter(p => p.active);
 }
 
-function hitEnemy(enemy) {
+function alignCarrotToPath(projectile) {
+  const tangent = tangentAtDistance(projectile.pathDistance, -1);
+  projectile.group.rotation.z = Math.atan2(-tangent.x, tangent.y);
+}
+
+function hitEnemy(enemy, projectile) {
   const damage = BASE_DAMAGE * (feverTimer > 0 ? 1.2 : 1);
   enemy.hp -= damage;
+
+  if (projectile && !projectile.hasHit) {
+    projectile.hasHit = true;
+    successfulShots++;
+  }
   enemy.hitFlash = 0.18;
   updateNumberLabel(enemy.label, enemy.hp);
   createBurst(enemy.group.position.x, enemy.group.position.y, 0xffd15b, 8);
@@ -717,7 +752,7 @@ function finishLevel(won) {
     ? '萝卜们成功挡住了怪潮'
     : '调整发射顺序和时机，再试一次';
 
-  const accuracy = shots > 0 ? Math.round((hits / shots) * 100) : 0;
+  const accuracy = shots > 0 ? Math.round((successfulShots / shots) * 100) : 0;
   DOM.accuracyValue.textContent = `${accuracy}%`;
   DOM.bestComboValue.textContent = String(bestCombo);
   DOM.lifeValue.textContent = String(Math.max(0, lives));
@@ -949,6 +984,37 @@ function buildPathData(points) {
   }
 
   return { segments, totalLength: total };
+}
+
+function nearestPointOnPath(x, y) {
+  const p = new THREE.Vector2(x, y);
+  let best = null;
+
+  for (const segment of pathData.segments) {
+    const ab = segment.b.clone().sub(segment.a);
+    const lenSq = ab.lengthSq();
+    const t = lenSq === 0
+      ? 0
+      : THREE.MathUtils.clamp(p.clone().sub(segment.a).dot(ab) / lenSq, 0, 1);
+
+    const point = segment.a.clone().add(ab.multiplyScalar(t));
+    const offset = point.distanceTo(p);
+    const distance = segment.start + segment.length * t;
+
+    if (!best || offset < best.offset) best = { point, offset, distance };
+  }
+
+  return best;
+}
+
+function tangentAtDistance(distance, direction = 1) {
+  const d = THREE.MathUtils.clamp(distance, 0, pathData.totalLength);
+  const segment =
+    pathData.segments.find(s => d <= s.start + s.length) ||
+    pathData.segments[pathData.segments.length - 1];
+
+  const tangent = segment.b.clone().sub(segment.a).normalize();
+  return tangent.multiplyScalar(direction);
 }
 
 function pointAtDistance(distance) {
