@@ -213,3 +213,24 @@ button { font: inherit; }
   .tools { bottom: 8px; }
   .tool-button { min-height: 50px; min-width: 78px; }
 }
+
+
+/* chili-cat-theme-v1 */
+:root{color:#493425;background:#d8efc4}
+html,body{background:radial-gradient(circle at 50% 8%,#f8ffe9 0 18%,transparent 42%),linear-gradient(180deg,#dff4c9,#b6d89b)}
+.game-card{background:#7fce4f;box-shadow:0 24px 80px rgb(38 83 29 / 28%)}
+.hud{align-items:start;padding-top:calc(10px + env(safe-area-inset-top));z-index:8}
+.hud-pill{min-height:38px;border-radius:22px;background:linear-gradient(180deg,rgb(54 91 38 / 94%),rgb(38 69 29 / 94%));border:2px solid rgb(255 255 255 / 25%);box-shadow:inset 0 2px 0 rgb(255 255 255 / 12%),0 5px 0 rgb(45 70 29 / 24%),0 10px 20px rgb(27 59 23 / 16%);text-shadow:0 2px 0 rgb(0 0 0 / 20%)}
+.hud-center{position:relative;min-width:180px;padding:39px 18px 8px;border-radius:18px 18px 22px 22px;color:#fff7d7;background:linear-gradient(180deg,#976238,#79502f 58%,#69432a);border:3px solid #b77a48;box-shadow:inset 0 2px 0 rgb(255 255 255 / 17%),inset 0 -4px 0 rgb(71 39 23 / 20%),0 5px 0 #5c3a25,0 12px 22px rgb(55 54 29 / 22%);text-shadow:0 2px 0 rgb(67 37 22 / 60%)}
+.hud-brand{position:absolute;top:-5px;left:50%;width:max-content;transform:translateX(-50%);display:flex;align-items:center;gap:2px;white-space:nowrap}
+.brand-text{color:#ffb632;font-size:23px;line-height:1;font-weight:1000;letter-spacing:-.04em;text-shadow:-2px -2px 0 #812815,2px -2px 0 #812815,-2px 2px 0 #812815,2px 2px 0 #812815,0 4px 0 #5d2619,0 7px 8px rgb(69 37 18 / 24%)}
+.brand-pepper{display:inline-block;font-size:25px;transform:rotate(-16deg);filter:drop-shadow(0 3px 1px rgb(70 34 18 / 30%))}
+.brand-pepper.mirror{transform:scaleX(-1) rotate(-16deg)}
+.hud-center strong{font-size:16px}.hud-center>span{font-size:11px;opacity:.94;margin-top:4px}
+.tutorial{top:98px;width:min(87%,410px);padding:11px 16px;border-radius:18px;color:#553721;background:linear-gradient(180deg,rgb(255 253 226 / 98%),rgb(255 244 188 / 98%));border:3px solid #fff;box-shadow:inset 0 -2px 0 #eadf9c,0 6px 0 rgb(125 142 73 / 22%),0 12px 24px rgb(56 92 37 / 18%);font-weight:900;line-height:1.35}
+.tutorial:after{content:"🐾";position:absolute;right:10px;bottom:5px;color:#d6a85d;font-size:13px;opacity:.6}
+.tool-button{min-width:91px;min-height:60px;border:3px solid #fff8df;border-radius:19px;color:#4b3521;background:linear-gradient(180deg,#fff8d9,#ffedb1);box-shadow:inset 0 2px 0 rgb(255 255 255 / 75%),0 6px 0 #9e9c58,0 11px 20px rgb(44 82 28 / 20%)}
+.tool-button.active{background:linear-gradient(180deg,#ffd86b,#ffbc43)}.tool-icon{font-size:27px}
+.modal-card{color:#4f3524;background:linear-gradient(180deg,#fff9dc,#ffefb9);border-radius:30px;box-shadow:inset 0 -4px 0 #e6d189,0 12px 0 #739748,0 28px 56px rgb(32 59 24 / 32%)}
+.modal-card h1{color:#a44324}.primary-button{background:linear-gradient(180deg,#ff6540,#e9482a);box-shadow:0 6px 0 #a82f1d}
+@media(max-height:720px){.hud-center{min-width:160px;padding-top:34px}.brand-text{font-size:20px}.brand-pepper{font-size:21px}.tutorial{top:91px}.tool-button{min-width:80px;min-height:52px}}
