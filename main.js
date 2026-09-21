@@ -562,93 +562,32 @@ function clearDynamicScene() {
   carrotByCell.clear();
 }
 
+
 function createCarrot(data, index) {
   const group = new THREE.Group();
   group.userData.kind = 'carrot';
   group.userData.index = index;
 
   const isPierce = data.type === 'pierce';
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: isPierce ? 0xff6a2e : 0xf03527,
-    roughness: 0.28,
-    metalness: 0.03,
-    emissive: isPierce ? 0x4a1200 : 0x2e0502,
-    emissiveIntensity: 0.12,
-  });
-  const darkRedMat = new THREE.MeshStandardMaterial({
-    color: isPierce ? 0xe14a1e : 0xc91d19,
-    roughness: 0.38,
-  });
-  const greenMat = new THREE.MeshStandardMaterial({
-    color: isPierce ? 0x45b950 : 0x259d42,
-    roughness: 0.45,
-  });
+  const texture = getTexture(
+    isPierce ? 'chili-pierce-2d' : 'chili-normal-2d',
+    () => createChiliTexture(isPierce)
+  );
 
-  const profile = [
-    new THREE.Vector2(0.10, -0.68),
-    new THREE.Vector2(0.27, -0.62),
-    new THREE.Vector2(0.40, -0.42),
-    new THREE.Vector2(0.45, -0.10),
-    new THREE.Vector2(0.39, 0.20),
-    new THREE.Vector2(0.28, 0.46),
-    new THREE.Vector2(0.16, 0.66),
-    new THREE.Vector2(0.055, 0.82),
-    new THREE.Vector2(0.0, 0.89),
-  ];
-  const body = new THREE.Mesh(new THREE.LatheGeometry(profile, 24), bodyMat);
-  body.scale.x = 0.9;
-  body.rotation.z = -0.055;
-  body.position.x = 0.035;
-  body.castShadow = true;
-  group.add(body);
-
-  const base = new THREE.Mesh(new THREE.SphereGeometry(0.31, 18, 14), darkRedMat);
-  base.scale.set(1.0, 0.58, 0.82);
-  base.position.set(-0.015, -0.57, -0.015);
-  base.castShadow = true;
-  group.add(base);
-
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.14, 0.32, 14), greenMat);
-  stem.position.set(-0.02, -0.83, 0.01);
-  stem.rotation.z = 0.12;
-  stem.castShadow = true;
-  group.add(stem);
-
-  for (const side of [-1, 0, 1]) {
-    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 10), greenMat);
-    leaf.scale.set(0.65, 1.15, 0.42);
-    leaf.position.set(side * 0.16, -0.7 - Math.abs(side) * 0.035, 0.02);
-    leaf.rotation.z = side * 0.72;
-    leaf.castShadow = true;
-    group.add(leaf);
-  }
-
-  const highlightMat = new THREE.MeshBasicMaterial({
-    color: 0xffd3c8,
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
     transparent: true,
-    opacity: 0.7,
+    depthTest: false,
     depthWrite: false,
-  });
-  const highlight = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), highlightMat);
-  highlight.scale.set(0.42, 1.75, 0.18);
-  highlight.position.set(-0.16, 0.02, 0.39);
-  highlight.rotation.z = -0.15;
-  group.add(highlight);
+    rotation: DIRS[data.dir].angle,
+  }));
+  sprite.scale.set(1.72, 1.72, 1);
+  sprite.position.z = 0.1;
+  group.userData.sprite = sprite;
+  group.add(sprite);
 
-  if (isPierce) {
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.31, 0.05, 8, 24),
-      new THREE.MeshStandardMaterial({ color: 0xffe45f, emissive: 0x8a5b00, emissiveIntensity: 0.22, roughness: 0.3 })
-    );
-    ring.position.y = 0.16;
-    ring.scale.set(1, 0.86, 1);
-    group.add(ring);
-  }
-
-  group.rotation.z = DIRS[data.dir].angle;
   const p = cellToWorld(data.row, data.col);
-  group.position.set(p.x, p.y, 0.2);
-  group.scale.setScalar(1.02);
+  group.position.set(p.x, p.y, 1.1);
   boardGroup.add(group);
 
   return {
@@ -664,43 +603,107 @@ function createCarrot(data, index) {
   };
 }
 
+function createChiliTexture(isPierce) {
+  return makeCanvasTexture(256, 256, (ctx) => {
+    ctx.clearRect(0, 0, 256, 256);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.save();
+    ctx.translate(128, 130);
+
+    ctx.fillStyle = 'rgba(42,72,25,.16)';
+    ctx.beginPath();
+    ctx.ellipse(15, 64, 57, 15, 0.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = isPierce ? '#ff5a31' : '#ef3d2f';
+    ctx.strokeStyle = isPierce ? '#9f281d' : '#8f271f';
+    ctx.lineWidth = 10;
+
+    ctx.beginPath();
+    ctx.moveTo(0, -91);
+    ctx.bezierCurveTo(-9, -69, -33, -51, -47, -24);
+    ctx.bezierCurveTo(-64, 9, -57, 42, -27, 60);
+    ctx.bezierCurveTo(-2, 76, 34, 70, 48, 45);
+    ctx.bezierCurveTo(61, 20, 45, -2, 22, -20);
+    ctx.bezierCurveTo(9, -31, 7, -57, 0, -91);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = '#ff9f8c';
+    ctx.lineWidth = 9;
+    ctx.globalAlpha = 0.72;
+    ctx.beginPath();
+    ctx.moveTo(-18, -45);
+    ctx.bezierCurveTo(-34, -16, -36, 15, -21, 34);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#2f9e42';
+    ctx.strokeStyle = '#187031';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(-18, 55);
+    ctx.quadraticCurveTo(-40, 69, -48, 82);
+    ctx.quadraticCurveTo(-24, 82, -8, 70);
+    ctx.quadraticCurveTo(-4, 92, 5, 100);
+    ctx.quadraticCurveTo(15, 82, 12, 68);
+    ctx.quadraticCurveTo(31, 77, 49, 72);
+    ctx.quadraticCurveTo(31, 56, 17, 52);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = '#197334';
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(3, 72);
+    ctx.quadraticCurveTo(14, 92, 9, 111);
+    ctx.stroke();
+
+    if (isPierce) {
+      ctx.strokeStyle = '#ffd94d';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.ellipse(0, -2, 41, 18, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff2a6';
+      ctx.beginPath();
+      ctx.arc(29, -7, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  });
+}
+
 function createEnemy(type = 'normal') {
   const config = enemyConfig(type);
   const group = new THREE.Group();
 
-  const body = new THREE.Mesh(
-    new THREE.SphereGeometry(config.radius, 18, 14),
-    new THREE.MeshStandardMaterial({ color: config.color, roughness: 0.75 })
-  );
-  body.scale.y = 0.86;
-  body.castShadow = true;
+  const texture = getTexture('enemy-' + type + '-2d', () => createMonsterTexture(type));
+  const body = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  }));
+  const visualSize = config.radius * 2.55;
+  body.scale.set(visualSize, visualSize, 1);
+  body.position.z = 0.1;
   group.add(body);
-
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x202020 });
-  for (const x of [-0.18, 0.18]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), eyeMat);
-    eye.position.set(x, 0.11, config.radius * 0.92);
-    group.add(eye);
-  }
-
-  if (type === 'tank') {
-    const hornMat = new THREE.MeshStandardMaterial({ color: 0xf0dfbb });
-    for (const x of [-0.27, 0.27]) {
-      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.42, 10), hornMat);
-      horn.position.set(x, 0.45, 0);
-      horn.rotation.z = x < 0 ? 0.3 : -0.3;
-      group.add(horn);
-    }
-  }
 
   const level2HpBoost = level === 2 ? 1.65 : 1;
   const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045) * level2HpBoost);
   const label = makeNumberLabel(maxHp);
-  label.position.set(0, 0.82, 0.5);
+  label.position.set(0, 0.82, 0.4);
   group.add(label);
 
   const start = pathPoints[0];
-  group.position.set(start.x, start.y, 0.1);
+  group.position.set(start.x, start.y, 1.3);
   enemyGroup.add(group);
 
   enemies.push({
@@ -715,6 +718,89 @@ function createEnemy(type = 'normal') {
     radius: config.radius,
     type,
     hitFlash: 0,
+  });
+}
+
+function createMonsterTexture(type) {
+  const palette = type === 'fast'
+    ? { body: '#a768e8', edge: '#7040a9', detail: '#d8b8ff' }
+    : type === 'tank'
+      ? { body: '#68a8d7', edge: '#3d708f', detail: '#d7f0ff' }
+      : { body: '#e9685a', edge: '#9b3c36', detail: '#ffb09f' };
+
+  return makeCanvasTexture(256, 256, (ctx) => {
+    ctx.clearRect(0, 0, 256, 256);
+    ctx.lineJoin = 'round';
+
+    ctx.fillStyle = 'rgba(44,63,29,.15)';
+    ctx.beginPath();
+    ctx.ellipse(132, 194, 64, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (type === 'tank') {
+      ctx.fillStyle = '#f4e1b8';
+      ctx.strokeStyle = '#9b7651';
+      ctx.lineWidth = 8;
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(128 + side * 45, 76);
+        ctx.lineTo(128 + side * 73, 40);
+        ctx.lineTo(128 + side * 25, 60);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+
+    ctx.fillStyle = palette.body;
+    ctx.strokeStyle = palette.edge;
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.bezierCurveTo(58, 166, 60, 87, 101, 65);
+    ctx.bezierCurveTo(124, 51, 162, 55, 185, 75);
+    ctx.bezierCurveTo(214, 101, 205, 164, 176, 181);
+    ctx.bezierCurveTo(143, 201, 84, 196, 58, 166);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = palette.detail;
+    ctx.globalAlpha = 0.62;
+    ctx.beginPath();
+    ctx.ellipse(104, 95, 26, 12, -0.45, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#fff9ed';
+    for (const x of [103, 153]) {
+      ctx.beginPath();
+      ctx.ellipse(x, 126, 17, 21, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#382a26';
+    for (const x of [106, 150]) {
+      ctx.beginPath();
+      ctx.arc(x, 130, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = '#5f3630';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(128, 156, 20, 0.18, Math.PI - 0.18);
+    ctx.stroke();
+
+    if (type === 'fast') {
+      ctx.strokeStyle = '#f4df56';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(190, 96);
+      ctx.lineTo(214, 81);
+      ctx.lineTo(205, 108);
+      ctx.lineTo(228, 102);
+      ctx.stroke();
+    }
   });
 }
 
