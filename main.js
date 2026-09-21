@@ -148,28 +148,93 @@ function init() {
 function createGround() {
   const grass = new THREE.Mesh(
     new THREE.PlaneGeometry(17, 28),
-    new THREE.MeshStandardMaterial({ color: 0x7fc94f, roughness: 0.95 })
+    new THREE.MeshStandardMaterial({ color: 0x79c94d, roughness: 0.94 })
   );
   grass.position.z = -1.5;
   grass.receiveShadow = true;
   scene.add(grass);
 
+  const random = mulberry32(20260921);
   const patches = new THREE.Group();
-  const geometry = new THREE.CircleGeometry(0.12, 12);
-  for (let i = 0; i < 90; i++) {
-    const hue = i % 3 === 0 ? 0x6ab843 : 0x91d662;
-    const patch = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: hue, transparent: true, opacity: 0.35 }));
-    patch.position.set((Math.random() - 0.5) * 15.5, (Math.random() - 0.5) * 25.5, -1.35);
-    patch.scale.setScalar(0.6 + Math.random() * 1.4);
+  for (let i = 0; i < 120; i++) {
+    const color = i % 4 === 0 ? 0xa3de68 : i % 3 === 0 ? 0x67b844 : 0x86d557;
+    const patch = new THREE.Mesh(
+      new THREE.CircleGeometry(0.05 + random() * 0.08, 10),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28 + random() * 0.18 })
+    );
+    patch.position.set((random() - 0.5) * 15.6, (random() - 0.5) * 25.7, -1.34);
+    patch.scale.set(0.8 + random() * 1.7, 0.55 + random() * 1.2, 1);
     patches.add(patch);
   }
   scene.add(patches);
+
+  const decor = new THREE.Group();
+  const bushMatA = new THREE.MeshStandardMaterial({ color: 0x4da43d, roughness: 0.9 });
+  const bushMatB = new THREE.MeshStandardMaterial({ color: 0x6bbb45, roughness: 0.9 });
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0xb8b39b, roughness: 0.92 });
+  const bushSpots = [
+    [-4.45, 2.7, 0.82], [4.35, 2.3, 0.7], [-4.2, -3.9, 0.74],
+    [4.25, -4.3, 0.82], [-5.25, 9.6, 0.68], [5.3, -10.3, 0.72],
+  ];
+
+  for (const [x, y, scale] of bushSpots) {
+    const bush = new THREE.Group();
+    for (let i = 0; i < 5; i++) {
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10), i % 2 ? bushMatA : bushMatB);
+      const a = (i / 5) * Math.PI * 2;
+      puff.position.set(Math.cos(a) * 0.32, Math.sin(a) * 0.16, 0);
+      puff.scale.set(1, 0.72, 0.5);
+      bush.add(puff);
+    }
+    bush.position.set(x, y, -0.92);
+    bush.scale.setScalar(scale);
+    decor.add(bush);
+  }
+
+  const flowerSpots = [
+    [-4.9, 5.3], [4.75, 4.4], [-4.65, 0.1], [4.75, -0.6],
+    [-4.8, -5.3], [4.7, -5.6], [-5.3, 11.1], [5.1, -11.3]
+  ];
+  for (let i = 0; i < flowerSpots.length; i++) {
+    const [x, y] = flowerSpots[i];
+    decor.add(makeGardenFlower(x, y, i % 3 === 0 ? 0xffd75a : 0xfff6db));
+  }
+
+  const stoneSpots = [[4.4,5.3],[-4.5,-2.1],[4.65,-6.0],[-5.0,8.8],[5.2,-8.7]];
+  for (const [x, y] of stoneSpots) {
+    const stone = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8), stoneMat);
+    stone.scale.set(1.15, 0.7, 0.45);
+    stone.position.set(x, y, -1.0);
+    stone.rotation.z = random() * Math.PI;
+    decor.add(stone);
+  }
+
+  scene.add(decor);
+}
+
+function makeGardenFlower(x, y, petalColor) {
+  const flower = new THREE.Group();
+  const petalMat = new THREE.MeshBasicMaterial({ color: petalColor });
+  const centerMat = new THREE.MeshBasicMaterial({ color: 0xf6b634 });
+  for (let i = 0; i < 5; i++) {
+    const petal = new THREE.Mesh(new THREE.CircleGeometry(0.09, 10), petalMat);
+    const a = i / 5 * Math.PI * 2;
+    petal.position.set(Math.cos(a) * 0.12, Math.sin(a) * 0.12, 0);
+    petal.scale.set(0.9, 1.25, 1);
+    flower.add(petal);
+  }
+  flower.add(new THREE.Mesh(new THREE.CircleGeometry(0.065, 12), centerMat));
+  flower.position.set(x, y, -0.85);
+  return flower;
 }
 
 function createRoad() {
   roadGroup = new THREE.Group();
-  const roadMaterial = new THREE.MeshStandardMaterial({ color: 0xc58f55, roughness: 1 });
-  const edgeMaterial = new THREE.MeshStandardMaterial({ color: 0x8d6b3f, roughness: 1 });
+  const roadMaterial = new THREE.MeshStandardMaterial({ color: 0xe1a663, roughness: 0.88 });
+  const roadLight = new THREE.MeshStandardMaterial({ color: 0xefbd79, roughness: 0.9 });
+  const edgeMaterial = new THREE.MeshStandardMaterial({ color: 0x936039, roughness: 0.94 });
+  const pebbleMat = new THREE.MeshStandardMaterial({ color: 0xc88f54, roughness: 0.95 });
+  const random = mulberry32(7031);
 
   for (let i = 0; i < pathPoints.length - 1; i++) {
     const a = pathPoints[i];
@@ -179,19 +244,35 @@ function createRoad() {
     const len = Math.hypot(dx, dy);
     const horizontal = Math.abs(dx) > Math.abs(dy);
 
-    const road = new THREE.Mesh(
-      new THREE.BoxGeometry(horizontal ? len : ROAD.width, horizontal ? ROAD.width : len, 0.14),
-      roadMaterial
-    );
-    road.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, -0.65);
-    road.receiveShadow = true;
-
     const edge = new THREE.Mesh(
-      new THREE.BoxGeometry(horizontal ? len + 0.18 : ROAD.width + 0.22, horizontal ? ROAD.width + 0.22 : len + 0.18, 0.06),
+      new THREE.BoxGeometry(horizontal ? len + 0.24 : ROAD.width + 0.28, horizontal ? ROAD.width + 0.28 : len + 0.24, 0.12),
       edgeMaterial
     );
-    edge.position.set(road.position.x, road.position.y, -0.78);
-    roadGroup.add(edge, road);
+    edge.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, -0.75);
+    edge.receiveShadow = true;
+    roadGroup.add(edge);
+
+    const road = new THREE.Mesh(
+      new THREE.BoxGeometry(horizontal ? len : ROAD.width, horizontal ? ROAD.width : len, 0.18),
+      i === 0 ? roadLight : roadMaterial
+    );
+    road.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, -0.61);
+    road.receiveShadow = true;
+    roadGroup.add(road);
+
+    const pebbleCount = Math.max(2, Math.floor(len / 2.2));
+    for (let p = 0; p < pebbleCount; p++) {
+      const t = (p + 0.45 + random() * 0.15) / pebbleCount;
+      const pebble = new THREE.Mesh(new THREE.SphereGeometry(0.09 + random() * 0.04, 10, 7), pebbleMat);
+      pebble.scale.set(1.25, 0.7, 0.38);
+      const jitter = (random() - 0.5) * ROAD.width * 0.46;
+      pebble.position.set(
+        THREE.MathUtils.lerp(a.x, b.x, t) + (horizontal ? 0 : jitter),
+        THREE.MathUtils.lerp(a.y, b.y, t) + (horizontal ? jitter : 0),
+        -0.45
+      );
+      roadGroup.add(pebble);
+    }
   }
 
   scene.add(roadGroup);
