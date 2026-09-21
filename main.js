@@ -281,6 +281,7 @@ function createSunflower() {
   sunflower.userData.kind = 'cat-mascot';
   sunflower.position.set(ROAD.leftX, ROAD.topY - 0.28, 2.5);
   sunflower.scale.set(2.1, 2.1, 1);
+  sunflower.userData.baseScale = 2.1;
   scene.add(sunflower);
 }
 
@@ -1050,7 +1051,9 @@ function updateProjectiles(dt) {
 
 function alignCarrotToPath(projectile) {
   const tangent = tangentAtDistance(projectile.pathDistance, -1);
-  projectile.group.rotation.z = Math.atan2(-tangent.x, tangent.y);
+  const angle = Math.atan2(-tangent.x, tangent.y);
+  const sprite = projectile.group.userData.sprite;
+  if (sprite?.material) sprite.material.rotation = angle;
 }
 
 function hitEnemy(enemy, projectile) {
@@ -1110,8 +1113,9 @@ function reachGoal(enemy) {
   lives--;
   combo = 0;
   comboTimer = 0;
-  sunflower.scale.set(0.82, 1.12, 1);
-  setTimeout(() => sunflower.scale.set(0.95, 0.95, 0.95), 140);
+  const catScale = sunflower.userData.baseScale || 2.1;
+  sunflower.scale.set(catScale * 0.86, catScale * 1.08, 1);
+  setTimeout(() => sunflower.scale.set(catScale, catScale, 1), 140);
   playTone(90, 0.16, 'square', 0.055);
   showMessage('小猫咪受伤！');
 }
@@ -1131,7 +1135,7 @@ function updateCarrotBumps(dt) {
     const phase = Math.sin(((0.24 - carrot.bumpTime) / 0.24) * Math.PI * 2);
     carrot.group.position.x = carrot.baseX + d.x * phase * 0.13;
     carrot.group.position.y = carrot.baseY + d.y * phase * 0.13;
-    if (carrot.bumpTime <= 0) carrot.group.position.set(carrot.baseX, carrot.baseY, 0.2);
+    if (carrot.bumpTime <= 0) carrot.group.position.set(carrot.baseX, carrot.baseY, 1.1);
   }
 }
 
@@ -1248,23 +1252,32 @@ function showMessage(text) {
 }
 
 function createBurst(x, y, color, count) {
+  const dotTexture = getTexture('fx-dot-2d', () => makeCanvasTexture(64, 64, (ctx) => {
+    ctx.clearRect(0, 0, 64, 64);
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(32, 32, 24, 0, Math.PI * 2);
+    ctx.fill();
+  }));
+
   for (let i = 0; i < count; i++) {
-    const mesh = new THREE.Mesh(
-      new THREE.CircleGeometry(0.06 + Math.random() * 0.06, 8),
-      new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 1,
-        depthTest: false,
-      })
-    );
-    mesh.position.set(x, y, 1.2);
-    fxGroup.add(mesh);
+    const size = 0.12 + Math.random() * 0.12;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: dotTexture,
+      color,
+      transparent: true,
+      opacity: 1,
+      depthTest: false,
+      depthWrite: false,
+    }));
+    sprite.scale.set(size, size, 1);
+    sprite.position.set(x, y, 3.2);
+    fxGroup.add(sprite);
 
     const angle = Math.random() * Math.PI * 2;
     const speed = 1.3 + Math.random() * 2.2;
     effects.push({
-      mesh,
+      mesh: sprite,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 0.45 + Math.random() * 0.28,
@@ -1514,9 +1527,8 @@ function disposeObject(object) {
 
     if (child.material) {
       const materials = Array.isArray(child.material) ? child.material : [child.material];
-
       for (const mat of materials) {
-        if (mat.map) mat.map.dispose?.();
+        if (mat.map && !mat.map.userData?.shared) mat.map.dispose?.();
         mat.dispose?.();
       }
     }
