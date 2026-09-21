@@ -29,6 +29,19 @@
 
   const W = 900;
   const H = 1600;
+  const ASSET_URL = './assets/chili-cat-sprite.webp?v=1';
+  const SPRITES = {
+    title: [0, 0, 650, 488],
+    tutorial: [670, 0, 840, 280],
+    combo: [670, 300, 430, 287],
+    cat: [0, 510, 360, 360],
+    chili: [380, 510, 210, 210],
+    monster: [610, 510, 190, 190],
+    heart: [820, 530, 130, 130],
+    remove: [0, 900, 220, 220],
+    freeze: [240, 900, 220, 220],
+    bomb: [480, 900, 220, 220],
+  };
   const DIRS = {
     up: { dr: -1, dc: 0, x: 0, y: -1, angle: 0 },
     right: { dr: 0, dc: 1, x: 1, y: 0, angle: Math.PI / 2 },
@@ -84,10 +97,11 @@
   let enemies = [];
   let effects = [];
   let audioContext = null;
+  let assetSheet = null;
 
   boot();
 
-  function boot() {
+  async function boot() {
     try {
       canvas = document.createElement('canvas');
       canvas.setAttribute('aria-label', '辣椒小猫咪关卡画面');
@@ -96,6 +110,15 @@
       if (!ctx) throw new Error('Canvas 2D context unavailable');
 
       resizeCanvas();
+      try {
+        assetSheet = await loadImage(ASSET_URL);
+        DOM.game.dataset.assets = 'ready';
+      } catch (assetError) {
+        console.warn('[辣椒小猫咪] 美术素材加载失败，使用基础绘制兜底', assetError);
+        assetSheet = null;
+        DOM.game.dataset.assets = 'fallback';
+      }
+
       backgroundCanvas = createBackgroundCanvas();
       bindEvents();
       loadLevel(1);
@@ -107,6 +130,16 @@
       DOM.game.dataset.error = error && error.message ? error.message : String(error);
       showFatalError(error);
     }
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('素材加载失败: ' + src));
+      img.src = src;
+    });
   }
 
   function bindEvents() {
@@ -162,26 +195,28 @@
 
     drawRoad(g);
 
+    // 棋盘中央只保留轻量小花/三叶草，较大的装饰全部放在玩法区外侧，
+    // 避免让玩家误以为是会阻挡辣椒的机关。
     const bushes = [
-      [185, 650, 30], [715, 640, 28], [175, 990, 31],
-      [720, 1010, 29], [78, 325, 24], [825, 1310, 26],
+      [48, 650, 24], [852, 650, 23], [50, 985, 25],
+      [850, 1015, 24], [64, 330, 22], [838, 1320, 23],
     ];
     bushes.forEach(([x, y, r]) => drawBush(g, x, y, r));
 
     const flowers = [
-      [142, 520, '#fff8e6'], [754, 515, '#ffe169'], [146, 800, '#fff8e6'],
-      [752, 835, '#fff8e6'], [165, 1110, '#ffe169'], [735, 1110, '#fff8e6'],
-      [80, 255, '#ffd76a'], [815, 1395, '#fff8e6'],
+      [235, 555, '#fff8e6'], [665, 565, '#ffe169'], [260, 760, '#fff8e6'],
+      [640, 825, '#fff8e6'], [275, 1055, '#ffe169'], [625, 1075, '#fff8e6'],
+      [75, 275, '#ffd76a'], [825, 1390, '#fff8e6'],
     ];
-    flowers.forEach(([x, y, c]) => drawFlower(g, x, y, c, 9));
+    flowers.forEach(([x, y, c]) => drawFlower(g, x, y, c, 8));
 
-    const stones = [[735, 570], [170, 870], [725, 1080], [85, 450], [815, 1260]];
+    const stones = [[52, 560], [848, 875], [56, 1110], [845, 1210]];
     stones.forEach(([x, y], i) => {
       g.fillStyle = i % 2 ? '#bbb9a8' : '#c9c5b5';
       g.strokeStyle = '#91917f';
       g.lineWidth = 2;
       g.beginPath();
-      g.ellipse(x, y, 15, 10, -0.25, 0, Math.PI * 2);
+      g.ellipse(x, y, 13, 8, -0.25, 0, Math.PI * 2);
       g.fill();
       g.stroke();
     });
@@ -192,6 +227,13 @@
   function drawRoad(g) {
     g.lineCap = 'butt';
     g.lineJoin = 'miter';
+
+    g.strokeStyle = '#3f9f39';
+    g.lineWidth = ROAD.width + 30;
+    g.beginPath();
+    g.moveTo(PATH_POINTS[0].x, PATH_POINTS[0].y);
+    for (let i = 1; i < PATH_POINTS.length; i++) g.lineTo(PATH_POINTS[i].x, PATH_POINTS[i].y);
+    g.stroke();
 
     g.strokeStyle = '#956239';
     g.lineWidth = ROAD.width + 14;
@@ -303,11 +345,7 @@
     DOM.waveLabel.textContent = `怪物 0 / ${totalEnemies}`;
     DOM.resultModal.classList.add('hidden');
     DOM.tutorial.classList.remove('hidden');
-    DOM.tutorialText.textContent = level === 1
-      ? '尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！'
-      : level === 2
-        ? '第 2 关：只有少数辣椒能先动，拆开锁链的同时顶住更强怪潮！'
-        : '怪物有血量：同一根辣椒会沿道路逆行，依次穿刺途中每个敌人。';
+    DOM.tutorialText.textContent = '尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！';
     tutorialDismissTimer = level === 1 ? 7 : 3.5;
     updateHUD();
     updateToolButtons();
@@ -696,6 +734,9 @@
     DOM.hammerCount.textContent = `×${toolsLeft.hammer}`;
     DOM.freezeCount.textContent = `×${toolsLeft.freeze}`;
     DOM.bombCount.textContent = `×${toolsLeft.bomb}`;
+    DOM.hammerButton.setAttribute('aria-label', `移除 x${toolsLeft.hammer}`);
+    DOM.freezeButton.setAttribute('aria-label', `冰冻 x${toolsLeft.freeze}`);
+    DOM.bombButton.setAttribute('aria-label', `炸弹 x${toolsLeft.bomb}`);
     DOM.hammerButton.disabled = toolsLeft.hammer <= 0;
     DOM.freezeButton.disabled = toolsLeft.freeze <= 0;
     DOM.bombButton.disabled = toolsLeft.bomb <= 0;
@@ -703,9 +744,13 @@
   }
 
   function updateHUD() {
-    DOM.lives.textContent = '❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, 3 - lives));
+    const hearts = DOM.lives.querySelectorAll('.life-heart');
+    hearts.forEach((heart, index) => {
+      heart.classList.toggle('lost', index >= Math.max(0, lives));
+    });
     DOM.waveLabel.textContent = `怪物 ${defeatedEnemies} / ${totalEnemies}`;
-    DOM.comboLabel.textContent = feverTimer > 0 ? `🔥 FEVER ${feverTimer.toFixed(1)}s` : `COMBO ×${combo}`;
+    DOM.comboLabel.textContent = feverTimer > 0 ? `🔥${Math.ceil(feverTimer)}` : `×${combo}`;
+    DOM.comboLabel.parentElement?.classList.toggle('hot', combo > 0 || feverTimer > 0);
   }
 
   function render(now) {
@@ -746,152 +791,113 @@
     ctx.globalAlpha = 1;
   }
 
+  function drawSprite(g, key, dx, dy, dw, dh) {
+    if (!assetSheet) return false;
+    const sprite = SPRITES[key];
+    if (!sprite) return false;
+    const [sx, sy, sw, sh] = sprite;
+    g.drawImage(assetSheet, sx, sy, sw, sh, dx, dy, dw, dh);
+    return true;
+  }
+
   function drawChili(g, x, y, angle, scale = 1, pierce = false) {
+    if (assetSheet) {
+      g.save();
+      g.translate(x, y);
+      // 源素材朝右下约 45°；现有方向角 0 代表朝上。
+      g.rotate(angle - Math.PI * 0.75);
+      g.scale(scale, scale);
+      drawSprite(g, 'chili', -57, -57, 114, 114);
+      if (pierce) {
+        g.strokeStyle = '#ffe15a';
+        g.lineWidth = 6;
+        g.beginPath();
+        g.ellipse(0, 0, 32, 12, 0, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.restore();
+      return;
+    }
+
+    // 素材加载失败时的轻量兜底，保证游戏仍可玩。
     g.save();
     g.translate(x, y);
     g.rotate(angle);
     g.scale(scale, scale);
-
-    g.fillStyle = 'rgba(42,72,25,.17)';
-    g.beginPath();
-    g.ellipse(8, 34, 34, 10, 0.08, 0, Math.PI * 2);
-    g.fill();
-
     g.fillStyle = pierce ? '#ff5a31' : '#ef3d2f';
-    g.strokeStyle = pierce ? '#9f281d' : '#8f271f';
-    g.lineWidth = 6;
+    g.strokeStyle = '#8f271f';
+    g.lineWidth = 5;
     g.beginPath();
-    g.moveTo(0, -52);
-    g.bezierCurveTo(-5, -40, -22, -28, -31, -10);
-    g.bezierCurveTo(-42, 11, -37, 31, -18, 42);
-    g.bezierCurveTo(-2, 52, 22, 48, 31, 31);
-    g.bezierCurveTo(40, 14, 30, 0, 15, -12);
-    g.bezierCurveTo(6, -20, 5, -37, 0, -52);
+    g.moveTo(0, -48);
+    g.bezierCurveTo(-28, -25, -36, 10, -18, 36);
+    g.bezierCurveTo(0, 54, 29, 44, 33, 17);
+    g.bezierCurveTo(36, -9, 15, -24, 0, -48);
     g.closePath();
     g.fill();
     g.stroke();
-
-    g.strokeStyle = '#ff9f8c';
-    g.lineWidth = 5;
-    g.globalAlpha = .7;
-    g.beginPath();
-    g.moveTo(-11, -25);
-    g.bezierCurveTo(-22, -7, -24, 12, -14, 24);
-    g.stroke();
-    g.globalAlpha = 1;
-
     g.fillStyle = '#2f9e42';
-    g.strokeStyle = '#187031';
-    g.lineWidth = 5;
     g.beginPath();
-    g.moveTo(-11, 39);
-    g.quadraticCurveTo(-27, 48, -31, 57);
-    g.quadraticCurveTo(-15, 57, -5, 48);
-    g.quadraticCurveTo(-3, 63, 4, 69);
-    g.quadraticCurveTo(10, 57, 8, 47);
-    g.quadraticCurveTo(21, 53, 31, 49);
-    g.quadraticCurveTo(20, 40, 11, 37);
-    g.closePath();
+    g.ellipse(0, 43, 22, 11, 0, 0, Math.PI * 2);
     g.fill();
-    g.stroke();
-
-    if (pierce) {
-      g.strokeStyle = '#ffd94d';
-      g.lineWidth = 5;
-      g.beginPath();
-      g.ellipse(0, -2, 26, 10, 0, 0, Math.PI * 2);
-      g.stroke();
-    }
     g.restore();
   }
 
   function drawCat(g, x, y, scale = 1) {
+    if (assetSheet) {
+      g.save();
+      g.translate(x, y);
+      g.scale(scale, 1 + (1 - scale) * 0.8);
+      drawSprite(g, 'cat', -82, -118, 164, 164);
+      g.restore();
+      return;
+    }
+
     g.save();
     g.translate(x, y);
-    g.scale(scale, 1 + (1 - scale) * 0.8);
-
-    g.fillStyle = 'rgba(60,75,35,.18)';
-    g.beginPath();
-    g.ellipse(0, 48, 48, 12, 0, 0, Math.PI * 2);
-    g.fill();
-
+    g.scale(scale, scale);
     g.fillStyle = '#f49a42';
     g.strokeStyle = '#7e482a';
     g.lineWidth = 5;
     g.beginPath();
-    g.moveTo(-42, -28); g.lineTo(-30, -67); g.lineTo(-10, -32); g.closePath(); g.fill(); g.stroke();
-    g.beginPath();
-    g.moveTo(42, -28); g.lineTo(30, -67); g.lineTo(10, -32); g.closePath(); g.fill(); g.stroke();
-
-    g.beginPath();
-    g.ellipse(0, 12, 37, 44, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.fillStyle = '#fff1d5';
-    g.beginPath(); g.ellipse(0, 20, 23, 30, 0, 0, Math.PI * 2); g.fill();
-
-    g.fillStyle = '#f49a42';
-    g.beginPath(); g.ellipse(0, -28, 49, 43, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-
-    g.fillStyle = '#fff8e9';
-    [-18, 18].forEach(ex => { g.beginPath(); g.ellipse(ex, -31, 11, 13, 0, 0, Math.PI * 2); g.fill(); });
-    g.fillStyle = '#342722';
-    [-18, 18].forEach(ex => { g.beginPath(); g.arc(ex, -29, 5.5, 0, Math.PI * 2); g.fill(); });
+    g.arc(0, -12, 44, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
     g.fillStyle = '#fff';
-    [-18, 18].forEach(ex => { g.beginPath(); g.arc(ex - 2, -32, 2, 0, Math.PI * 2); g.fill(); });
-
-    g.fillStyle = '#f28f94';
-    g.beginPath(); g.moveTo(0, -17); g.lineTo(-5, -12); g.lineTo(5, -12); g.closePath(); g.fill();
-    g.strokeStyle = '#5a382c'; g.lineWidth = 3;
-    g.beginPath(); g.arc(-5, -9, 8, .1, 1.15); g.stroke();
-    g.beginPath(); g.arc(5, -9, 8, Math.PI - 1.15, Math.PI - .1); g.stroke();
-
-    g.strokeStyle = '#d94336'; g.lineWidth = 8;
-    g.beginPath(); g.arc(0, -2, 27, .2, Math.PI - .2); g.stroke();
-    g.fillStyle = '#f5be36'; g.strokeStyle = '#9d6919'; g.lineWidth = 3;
-    g.beginPath(); g.arc(0, 10, 7, 0, Math.PI * 2); g.fill(); g.stroke();
-
-    g.fillStyle = '#fff8e9'; g.strokeStyle = '#7e482a'; g.lineWidth = 4;
-    [-19, 19].forEach(px => { g.beginPath(); g.ellipse(px, 45, 13, 8, 0, 0, Math.PI * 2); g.fill(); g.stroke(); });
+    [-15, 15].forEach(ex => { g.beginPath(); g.arc(ex, -20, 8, 0, Math.PI * 2); g.fill(); });
     g.restore();
   }
 
   function drawMonster(g, enemy) {
-    const cfg = enemy.type === 'fast'
-      ? { body: '#a768e8', edge: '#7040a9', shine: '#d8b8ff' }
-      : enemy.type === 'tank'
-        ? { body: '#68a8d7', edge: '#3d708f', shine: '#d7f0ff' }
-        : { body: '#e9685a', edge: '#9b3c36', shine: '#ffb09f' };
-    const flash = enemy.hitFlash > 0;
-    const pulse = flash ? 1 + Math.sin(enemy.hitFlash * 45) * .08 : 1;
-
-    g.save();
-    g.translate(enemy.x, enemy.y);
-    g.scale(pulse, 1 / pulse);
-    if (enemy.type === 'tank') {
-      g.fillStyle = '#f4e1b8'; g.strokeStyle = '#9b7651'; g.lineWidth = 4;
-      [-1, 1].forEach(side => { g.beginPath(); g.moveTo(side * 19, -22); g.lineTo(side * 34, -42); g.lineTo(side * 10, -31); g.closePath(); g.fill(); g.stroke(); });
+    if (assetSheet) {
+      const flash = enemy.hitFlash > 0;
+      const pulse = flash ? 1 + Math.sin(enemy.hitFlash * 45) * .08 : 1;
+      g.save();
+      g.translate(enemy.x, enemy.y);
+      g.scale(pulse, 1 / pulse);
+      if (enemy.type === 'fast') g.filter = 'hue-rotate(245deg) saturate(.95)';
+      if (enemy.type === 'tank') g.filter = 'hue-rotate(165deg) saturate(.82) brightness(.95)';
+      if (flash) g.filter = (g.filter && g.filter !== 'none' ? g.filter + ' ' : '') + 'brightness(1.55)';
+      drawSprite(g, 'monster', -40, -40, 80, 80);
+      g.restore();
+      drawHpLabel(g, enemy.x, enemy.y - 53, enemy.hp);
+      return;
     }
 
-    g.fillStyle = flash ? '#fff5aa' : cfg.body;
+    const cfg = enemy.type === 'fast'
+      ? { body: '#a768e8', edge: '#7040a9' }
+      : enemy.type === 'tank'
+        ? { body: '#68a8d7', edge: '#3d708f' }
+        : { body: '#e9685a', edge: '#9b3c36' };
+    g.save();
+    g.translate(enemy.x, enemy.y);
+    g.fillStyle = enemy.hitFlash > 0 ? '#fff5aa' : cfg.body;
     g.strokeStyle = cfg.edge;
     g.lineWidth = 5;
     g.beginPath();
-    g.moveTo(-31, 24);
-    g.bezierCurveTo(-34, 2, -29, -29, -4, -37);
-    g.bezierCurveTo(19, -43, 39, -28, 42, -6);
-    g.bezierCurveTo(45, 18, 31, 34, 8, 38);
-    g.bezierCurveTo(-11, 41, -27, 35, -31, 24);
-    g.closePath(); g.fill(); g.stroke();
-
-    g.fillStyle = cfg.shine; g.globalAlpha = .65;
-    g.beginPath(); g.ellipse(-11, -20, 12, 6, -.4, 0, Math.PI * 2); g.fill();
-    g.globalAlpha = 1;
-
-    g.fillStyle = '#fff8eb';
-    [-12, 12].forEach(ex => { g.beginPath(); g.ellipse(ex, 0, 8, 10, 0, 0, Math.PI * 2); g.fill(); });
-    g.fillStyle = '#352822';
-    [-11, 11].forEach(ex => { g.beginPath(); g.arc(ex, 2, 4, 0, Math.PI * 2); g.fill(); });
+    g.arc(0, 0, enemy.radius, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
     g.restore();
-
     drawHpLabel(g, enemy.x, enemy.y - 53, enemy.hp);
   }
 
