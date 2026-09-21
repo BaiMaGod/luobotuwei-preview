@@ -252,15 +252,15 @@ function loadLevel(nextLevel) {
   toolsLeft = { hammer: 1, freeze: 1, bomb: 1 };
   spawnedEnemies = 0;
   defeatedEnemies = 0;
-  totalEnemies = level === 2 ? 16 : 6 + Math.ceil(level * 0.7);
-  spawnInterval = level === 2 ? 0.62 : Math.max(0.68, 1.18 - level * 0.035);
-  spawnTimer = level === 2 ? 0.1 : 0.5;
+  totalEnemies = level === 2 ? 18 : 6 + Math.ceil(level * 0.7);
+  spawnInterval = level === 2 ? 0.58 : Math.max(0.68, 1.18 - level * 0.035);
+  spawnTimer = level === 2 ? 0.08 : 0.5;
   lastHintAt = performance.now();
 
-  const count = level === 2
-    ? 27
-    : Math.min(14 + level * 2, BOARD.rows * BOARD.cols - 3);
-  const layout = generateSolvableLayout(BOARD.rows, BOARD.cols, count, 5000 + level * 7919);
+  const count = Math.min(14 + level * 2, BOARD.rows * BOARD.cols - 3);
+  const layout = level === 2
+    ? generateLevel2HardLayout()
+    : generateSolvableLayout(BOARD.rows, BOARD.cols, count, 5000 + level * 7919);
   carrots = layout.map((item, index) => createCarrot(item, index));
   carrotByCell = new Map(carrots.map(c => [cellKey(c.row, c.col), c]));
 
@@ -270,7 +270,7 @@ function loadLevel(nextLevel) {
   DOM.tutorialText.textContent = level === 1
     ? '尖端就是方向。萝卜飞到道路后，会逆着怪物前进方向一路穿刺！'
     : level === 2
-      ? '第 2 关：怪潮大幅加速，高血怪更多，萝卜阵也更拥挤！'
+      ? '第 2 关：只有少数萝卜能先动，拆开锁链的同时顶住更强怪潮！'
       : '怪物有血量：同一根萝卜会沿道路逆行，依次穿刺途中每个敌人。';
   tutorialDismissTimer = level === 1 ? 7 : level === 2 ? 3 : 3.5;
   updateHUD();
@@ -381,7 +381,7 @@ function createEnemy(type = 'normal') {
     }
   }
 
-  const level2HpBoost = level === 2 ? 1.38 : 1;
+  const level2HpBoost = level === 2 ? 1.65 : 1;
   const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045) * level2HpBoost);
   const label = makeNumberLabel(maxHp);
   label.position.set(0, 0.82, 0.5);
@@ -397,7 +397,7 @@ function createEnemy(type = 'normal') {
     label,
     hp: maxHp,
     maxHp,
-    speed: config.speed * (1 + (level - 1) * 0.018) * (level === 2 ? 1.16 : 1),
+    speed: config.speed * (1 + (level - 1) * 0.018) * (level === 2 ? 1.22 : 1),
     distance: 0,
     active: true,
     radius: config.radius,
@@ -414,8 +414,8 @@ function enemyConfig(type) {
 
 function chooseEnemyType(index) {
   if (level === 2) {
-    if (index === 4 || index === 8 || index === 12 || index === 15) return 'tank';
-    if (index === 1 || index === 3 || index === 6 || index === 10 || index === 13) return 'fast';
+    if (index === 4 || index === 8 || index === 12 || index === 16) return 'tank';
+    if (index === 1 || index === 3 || index === 6 || index === 10 || index === 13 || index === 15) return 'fast';
     return 'normal';
   }
 
@@ -891,6 +891,35 @@ function updateEffects(dt) {
   }
 
   effects = effects.filter(fx => fx.life > 0);
+}
+
+function generateLevel2HardLayout() {
+  const layout = [];
+  const push = (row, col, dir, type = 'normal') => {
+    layout.push({ row, col, dir, type });
+  };
+
+  // 上半区锁链：开局仅左上角可动，逐个清开整行后才会解锁下一行。
+  push(0, 0, 'left');
+  for (let c = 1; c < BOARD.cols; c++) push(0, c, 'left');
+
+  for (let c = 0; c < BOARD.cols - 1; c++) push(1, c, 'right');
+  push(1, BOARD.cols - 1, 'up');
+
+  push(2, 0, 'up');
+  for (let c = 1; c < BOARD.cols; c++) push(2, c, 'left');
+
+  // 下半区第二条独立锁链：与上半区反向。
+  // 因此第二关开局严格只有两个合法出口，而不是同时出现大量可点击萝卜。
+  for (let c = 0; c < BOARD.cols; c++) push(5, c, 'right');
+
+  push(4, 0, 'down');
+  for (let c = 1; c < BOARD.cols; c++) push(4, c, 'left');
+
+  for (let c = 0; c < BOARD.cols - 1; c++) push(3, c, 'right');
+  push(3, BOARD.cols - 1, 'down');
+
+  return layout;
 }
 
 function generateSolvableLayout(rows, cols, count, seed) {
