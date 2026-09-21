@@ -30,6 +30,7 @@
   const W = 900;
   const H = 1600;
   const ASSET_URL = './assets/chili-cat-sprite.webp?v=1';
+  const BACKGROUND_URL = './assets/garden-background.svg?v=1';
   const SPRITES = {
     title: [0, 0, 650, 488],
     tutorial: [670, 0, 840, 280],
@@ -98,6 +99,7 @@
   let effects = [];
   let audioContext = null;
   let assetSheet = null;
+  let backgroundImage = null;
 
   boot();
 
@@ -110,13 +112,27 @@
       if (!ctx) throw new Error('Canvas 2D context unavailable');
 
       resizeCanvas();
-      try {
-        assetSheet = await loadImage(ASSET_URL);
+      const [assetResult, backgroundResult] = await Promise.allSettled([
+        loadImage(ASSET_URL),
+        loadImage(BACKGROUND_URL),
+      ]);
+
+      if (assetResult.status === 'fulfilled') {
+        assetSheet = assetResult.value;
         DOM.game.dataset.assets = 'ready';
-      } catch (assetError) {
-        console.warn('[辣椒小猫咪] 美术素材加载失败，使用基础绘制兜底', assetError);
+      } else {
+        console.warn('[辣椒小猫咪] 元素素材加载失败，使用基础绘制兜底', assetResult.reason);
         assetSheet = null;
         DOM.game.dataset.assets = 'fallback';
+      }
+
+      if (backgroundResult.status === 'fulfilled') {
+        backgroundImage = backgroundResult.value;
+        DOM.game.dataset.background = 'ready';
+      } else {
+        console.warn('[辣椒小猫咪] 花园背景加载失败，使用程序背景兜底', backgroundResult.reason);
+        backgroundImage = null;
+        DOM.game.dataset.background = 'fallback';
       }
 
       backgroundCanvas = createBackgroundCanvas();
@@ -172,6 +188,11 @@
     bg.width = W;
     bg.height = H;
     const g = bg.getContext('2d');
+
+    if (backgroundImage) {
+      g.drawImage(backgroundImage, 0, 0, W, H);
+      return bg;
+    }
 
     const grad = g.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, '#8bd95d');
