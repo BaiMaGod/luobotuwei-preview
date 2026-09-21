@@ -360,9 +360,8 @@ function createSunflower() {
   sunflower.add(nose);
 
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.075, 10, 26), red);
-  collar.rotation.x = Math.PI / 2;
   collar.position.set(0, -0.2, 0.54);
-  collar.scale.y = 0.78;
+  collar.scale.set(1, 0.38, 1);
   sunflower.add(collar);
 
   const bell = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), gold);
@@ -523,9 +522,8 @@ function createCarrot(data, index) {
       new THREE.TorusGeometry(0.31, 0.05, 8, 24),
       new THREE.MeshStandardMaterial({ color: 0xffe45f, emissive: 0x8a5b00, emissiveIntensity: 0.22, roughness: 0.3 })
     );
-    ring.rotation.x = Math.PI / 2;
     ring.position.y = 0.16;
-    ring.scale.y = 0.86;
+    ring.scale.set(1, 0.86, 1);
     group.add(ring);
   }
 
