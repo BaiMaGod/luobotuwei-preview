@@ -199,38 +199,109 @@ function createRoad() {
 
 function createSunflower() {
   sunflower = new THREE.Group();
-  const stem = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.13, 0.95, 5, 10),
-    new THREE.MeshStandardMaterial({ color: 0x4f9d3d })
-  );
-  stem.position.y = -0.55;
-  sunflower.add(stem);
+  sunflower.userData.kind = 'cat-mascot';
 
-  const center = new THREE.Mesh(
-    new THREE.SphereGeometry(0.45, 20, 16),
-    new THREE.MeshStandardMaterial({ color: 0x7d4928 })
-  );
-  center.position.z = 0.2;
-  sunflower.add(center);
+  const orange = new THREE.MeshStandardMaterial({ color: 0xf59a43, roughness: 0.48, metalness: 0.02 });
+  const cream = new THREE.MeshStandardMaterial({ color: 0xfff0d5, roughness: 0.6 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xfffbef, roughness: 0.55 });
+  const pink = new THREE.MeshStandardMaterial({ color: 0xf58a8d, roughness: 0.55 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x39261f, roughness: 0.5 });
+  const red = new THREE.MeshStandardMaterial({ color: 0xd94735, roughness: 0.48 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xf6bf39, roughness: 0.32, metalness: 0.15 });
+  const wood = new THREE.MeshStandardMaterial({ color: 0x8f5d35, roughness: 0.86 });
 
-  const petalGeometry = new THREE.SphereGeometry(0.28, 14, 10);
-  const petalMaterial = new THREE.MeshStandardMaterial({ color: 0xffd43b });
-  for (let i = 0; i < 10; i++) {
-    const p = new THREE.Mesh(petalGeometry, petalMaterial);
-    const a = (i / 10) * Math.PI * 2;
-    p.position.set(Math.cos(a) * 0.62, Math.sin(a) * 0.62, 0.05);
-    p.scale.set(0.7, 1.15, 0.75);
-    p.rotation.z = a;
-    sunflower.add(p);
+  const perch = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.28, 0.34), wood);
+  perch.position.set(0, -1.05, -0.04);
+  perch.castShadow = true;
+  sunflower.add(perch);
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.58, 24, 18), orange);
+  body.scale.set(0.9, 1.08, 0.72);
+  body.position.set(0, -0.5, 0.22);
+  body.castShadow = true;
+  sunflower.add(body);
+
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.36, 20, 14), cream);
+  belly.scale.set(0.95, 1.12, 0.45);
+  belly.position.set(0, -0.53, 0.65);
+  sunflower.add(belly);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.64, 26, 20), orange);
+  head.scale.set(1.02, 0.93, 0.72);
+  head.position.set(0, 0.26, 0.35);
+  head.castShadow = true;
+  sunflower.add(head);
+
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.29, 0.5, 3), orange);
+    ear.position.set(side * 0.4, 0.75, 0.28);
+    ear.rotation.z = side * -0.13;
+    ear.castShadow = true;
+    sunflower.add(ear);
+
+    const innerEar = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.28, 3), pink);
+    innerEar.position.set(side * 0.4, 0.77, 0.52);
+    innerEar.rotation.z = side * -0.13;
+    sunflower.add(innerEar);
   }
 
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x251d17 });
-  for (const x of [-0.16, 0.16]) {
-    const eye = new THREE.Mesh(new THREE.CircleGeometry(0.05, 12), eyeMat);
-    eye.position.set(x, 0.1, 0.64);
-    sunflower.add(eye);
+  for (const side of [-1, 1]) {
+    const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), white);
+    eyeWhite.scale.set(0.9, 1.16, 0.44);
+    eyeWhite.position.set(side * 0.23, 0.34, 0.9);
+    sunflower.add(eyeWhite);
+
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.07, 14, 10), dark);
+    pupil.scale.set(0.9, 1.12, 0.5);
+    pupil.position.set(side * 0.23, 0.33, 1.005);
+    sunflower.add(pupil);
+
+    const sparkle = new THREE.Mesh(new THREE.SphereGeometry(0.024, 10, 8), white);
+    sparkle.position.set(side * 0.205, 0.37, 1.065);
+    sunflower.add(sparkle);
+
+    const cheek = new THREE.Mesh(new THREE.CircleGeometry(0.075, 14), new THREE.MeshBasicMaterial({ color: 0xff9e8c, transparent: true, opacity: 0.8 }));
+    cheek.position.set(side * 0.38, 0.12, 1.045);
+    sunflower.add(cheek);
   }
-  sunflower.position.set(ROAD.leftX, ROAD.topY - 0.35, 0.2);
+
+  const muzzleL = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), white);
+  muzzleL.scale.set(1.1, 0.82, 0.45);
+  muzzleL.position.set(-0.1, 0.12, 0.96);
+  sunflower.add(muzzleL);
+  const muzzleR = muzzleL.clone();
+  muzzleR.position.x = 0.1;
+  sunflower.add(muzzleR);
+
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), pink);
+  nose.scale.set(1.15, 0.75, 0.65);
+  nose.position.set(0, 0.17, 1.08);
+  sunflower.add(nose);
+
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.075, 10, 26), red);
+  collar.rotation.x = Math.PI / 2;
+  collar.position.set(0, -0.2, 0.54);
+  collar.scale.y = 0.78;
+  sunflower.add(collar);
+
+  const bell = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), gold);
+  bell.position.set(0, -0.31, 0.93);
+  sunflower.add(bell);
+
+  for (const side of [-1, 1]) {
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12), white);
+    paw.scale.set(1.2, 0.72, 0.7);
+    paw.position.set(side * 0.28, -0.88, 0.58);
+    sunflower.add(paw);
+  }
+
+  const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.72, 5, 12), orange);
+  tail.position.set(-0.63, -0.56, 0.18);
+  tail.rotation.z = -0.95;
+  tail.castShadow = true;
+  sunflower.add(tail);
+
+  sunflower.position.set(ROAD.leftX, ROAD.topY - 0.35, 0.25);
   sunflower.scale.setScalar(0.95);
   scene.add(sunflower);
 }
