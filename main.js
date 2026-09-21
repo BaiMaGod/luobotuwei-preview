@@ -757,7 +757,8 @@ function createMonsterTexture(type) {
     ctx.strokeStyle = palette.edge;
     ctx.lineWidth = 10;
     ctx.beginPath();
-    ctx.bezierCurveTo(58, 166, 60, 87, 101, 65);
+    ctx.moveTo(58, 166);
+    ctx.bezierCurveTo(55, 130, 60, 87, 101, 65);
     ctx.bezierCurveTo(124, 51, 162, 55, 185, 75);
     ctx.bezierCurveTo(214, 101, 205, 164, 176, 181);
     ctx.bezierCurveTo(143, 201, 84, 196, 58, 166);
@@ -830,7 +831,7 @@ function makeNumberLabel(value) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false })
+    new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false })
   );
   sprite.scale.set(1.25, 0.62, 1);
   sprite.userData.canvas = canvas;
