@@ -88,6 +88,7 @@ const pathPoints = [
   new THREE.Vector2(ROAD.leftX, ROAD.topY - 1.4),
 ];
 const pathData = buildPathData(pathPoints);
+const textureCache = new Map();
 
 init();
 loadLevel(1);
@@ -299,7 +300,6 @@ function makeCanvasTexture(width, height, draw) {
   return texture;
 }
 
-const textureCache = new Map();
 
 function getTexture(key, factory) {
   if (!textureCache.has(key)) textureCache.set(key, factory());
