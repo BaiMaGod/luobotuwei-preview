@@ -369,45 +369,89 @@ function createCarrot(data, index) {
   group.userData.kind = 'carrot';
   group.userData.index = index;
 
+  const isPierce = data.type === 'pierce';
   const bodyMat = new THREE.MeshStandardMaterial({
-    color: data.type === 'pierce' ? 0xf6b936 : 0xf47d2b,
-    roughness: 0.7,
+    color: isPierce ? 0xff6a2e : 0xf03527,
+    roughness: 0.28,
+    metalness: 0.03,
+    emissive: isPierce ? 0x4a1200 : 0x2e0502,
+    emissiveIntensity: 0.12,
   });
-  const body = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.28, 18), bodyMat);
+  const darkRedMat = new THREE.MeshStandardMaterial({
+    color: isPierce ? 0xe14a1e : 0xc91d19,
+    roughness: 0.38,
+  });
+  const greenMat = new THREE.MeshStandardMaterial({
+    color: isPierce ? 0x45b950 : 0x259d42,
+    roughness: 0.45,
+  });
+
+  const profile = [
+    new THREE.Vector2(0.10, -0.68),
+    new THREE.Vector2(0.27, -0.62),
+    new THREE.Vector2(0.40, -0.42),
+    new THREE.Vector2(0.45, -0.10),
+    new THREE.Vector2(0.39, 0.20),
+    new THREE.Vector2(0.28, 0.46),
+    new THREE.Vector2(0.16, 0.66),
+    new THREE.Vector2(0.055, 0.82),
+    new THREE.Vector2(0.0, 0.89),
+  ];
+  const body = new THREE.Mesh(new THREE.LatheGeometry(profile, 24), bodyMat);
+  body.scale.x = 0.9;
+  body.rotation.z = -0.055;
+  body.position.x = 0.035;
   body.castShadow = true;
-  body.position.y = 0.06;
   group.add(body);
 
-  const collar = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.31, 0.38, 0.16, 16),
-    new THREE.MeshStandardMaterial({ color: 0xef6723 })
-  );
-  collar.position.y = -0.61;
-  group.add(collar);
+  const base = new THREE.Mesh(new THREE.SphereGeometry(0.31, 18, 14), darkRedMat);
+  base.scale.set(1.0, 0.58, 0.82);
+  base.position.set(-0.015, -0.57, -0.015);
+  base.castShadow = true;
+  group.add(base);
 
-  const leafMat = new THREE.MeshStandardMaterial({
-    color: data.type === 'pierce' ? 0x30a86a : 0x3eaa45,
-    roughness: 0.8,
-  });
-  for (const offset of [-0.18, 0, 0.18]) {
-    const leaf = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.34, 4, 8), leafMat);
-    leaf.position.set(offset, -0.93, 0);
-    leaf.rotation.z = offset * 1.3;
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.14, 0.32, 14), greenMat);
+  stem.position.set(-0.02, -0.83, 0.01);
+  stem.rotation.z = 0.12;
+  stem.castShadow = true;
+  group.add(stem);
+
+  for (const side of [-1, 0, 1]) {
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 10), greenMat);
+    leaf.scale.set(0.65, 1.15, 0.42);
+    leaf.position.set(side * 0.16, -0.7 - Math.abs(side) * 0.035, 0.02);
+    leaf.rotation.z = side * 0.72;
+    leaf.castShadow = true;
     group.add(leaf);
   }
 
-  if (data.type === 'pierce') {
+  const highlightMat = new THREE.MeshBasicMaterial({
+    color: 0xffd3c8,
+    transparent: true,
+    opacity: 0.7,
+    depthWrite: false,
+  });
+  const highlight = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), highlightMat);
+  highlight.scale.set(0.42, 1.75, 0.18);
+  highlight.position.set(-0.16, 0.02, 0.39);
+  highlight.rotation.z = -0.15;
+  group.add(highlight);
+
+  if (isPierce) {
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.28, 0.055, 8, 18),
-      new THREE.MeshBasicMaterial({ color: 0xfff07d })
+      new THREE.TorusGeometry(0.31, 0.05, 8, 24),
+      new THREE.MeshStandardMaterial({ color: 0xffe45f, emissive: 0x8a5b00, emissiveIntensity: 0.22, roughness: 0.3 })
     );
-    ring.position.y = 0.22;
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.16;
+    ring.scale.y = 0.86;
     group.add(ring);
   }
 
   group.rotation.z = DIRS[data.dir].angle;
   const p = cellToWorld(data.row, data.col);
   group.position.set(p.x, p.y, 0.2);
+  group.scale.setScalar(1.02);
   boardGroup.add(group);
 
   return {
