@@ -95,7 +95,7 @@ animate();
 
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x86cf5a);
+  scene.background = new THREE.Color(0x86d85a);
 
   camera = new THREE.OrthographicCamera(WORLD.left, WORLD.right, WORLD.top, WORLD.bottom, 0.1, 100);
   camera.position.set(0, 0, 20);
@@ -107,8 +107,8 @@ function init() {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   DOM.game.appendChild(renderer.domElement);
 
-  scene.add(new THREE.HemisphereLight(0xfff5d8, 0x44713b, 2.5));
-  const light = new THREE.DirectionalLight(0xffffff, 2.1);
+  scene.add(new THREE.HemisphereLight(0xfff8df, 0x3d7134, 2.8));
+  const light = new THREE.DirectionalLight(0xfff8e8, 2.45);
   light.position.set(-6, 10, 12);
   light.castShadow = true;
   light.shadow.mapSize.set(1024, 1024);
@@ -268,10 +268,10 @@ function loadLevel(nextLevel) {
   DOM.resultModal.classList.add('hidden');
   DOM.tutorial.classList.remove('hidden');
   DOM.tutorialText.textContent = level === 1
-    ? '尖端就是方向。萝卜飞到道路后，会逆着怪物前进方向一路穿刺！'
+    ? '尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！'
     : level === 2
-      ? '第 2 关：只有少数萝卜能先动，拆开锁链的同时顶住更强怪潮！'
-      : '怪物有血量：同一根萝卜会沿道路逆行，依次穿刺途中每个敌人。';
+      ? '第 2 关：只有少数辣椒能先动，拆开锁链的同时顶住更强怪潮！'
+      : '怪物有血量：同一根辣椒会沿道路逆行，依次穿刺途中每个敌人。';
   tutorialDismissTimer = level === 1 ? 7 : level === 2 ? 3 : 3.5;
   updateHUD();
   updateToolButtons();
@@ -680,7 +680,7 @@ function hitEnemy(enemy, projectile) {
 
   if (combo === 10 && feverTimer <= 0) {
     feverTimer = 5;
-    showMessage('🔥 萝卜狂热！');
+    showMessage('🔥 辣椒狂热！');
   } else if ([3, 5, 8].includes(combo)) {
     showMessage(combo >= 8 ? 'PERFECT!' : combo >= 5 ? 'GREAT!' : 'GOOD!');
   }
@@ -712,10 +712,10 @@ function reachGoal(enemy) {
   lives--;
   combo = 0;
   comboTimer = 0;
-  sunflower.scale.set(0.78, 1.18, 1);
+  sunflower.scale.set(0.82, 1.12, 1);
   setTimeout(() => sunflower.scale.set(0.95, 0.95, 0.95), 140);
   playTone(90, 0.16, 'square', 0.055);
-  showMessage('向日葵受伤！');
+  showMessage('小猫咪受伤！');
 }
 
 function deactivateProjectile(projectile) {
@@ -757,10 +757,10 @@ function finishLevel(won) {
   if (gameState !== 'playing') return;
   gameState = won ? 'won' : 'lost';
 
-  DOM.resultIcon.textContent = won ? '🌻' : '🥀';
+  DOM.resultIcon.textContent = won ? '😺' : '😿';
   DOM.resultTitle.textContent = won ? '守住了！' : '差一点！';
   DOM.resultSubtitle.textContent = won
-    ? '萝卜们成功挡住了怪潮'
+    ? '辣椒们成功挡住了怪潮'
     : '调整发射顺序和时机，再试一次';
 
   const accuracy = shots > 0 ? Math.round((successfulShots / shots) * 100) : 0;
@@ -778,7 +778,7 @@ function toggleTool(name) {
   if (gameState !== 'playing' || toolsLeft[name] <= 0) return;
   toolMode = toolMode === name ? null : name;
   updateToolButtons();
-  if (toolMode === 'hammer') showMessage('选择一根萝卜移除');
+  if (toolMode === 'hammer') showMessage('选择一根辣椒移除');
 }
 
 function useFreeze() {
@@ -910,7 +910,7 @@ function generateLevel2HardLayout() {
   for (let c = 1; c < BOARD.cols; c++) push(2, c, 'left');
 
   // 下半区第二条独立锁链：与上半区反向。
-  // 因此第二关开局严格只有两个合法出口，而不是同时出现大量可点击萝卜。
+  // 因此第二关开局严格只有两个合法出口，而不是同时出现大量可点击辣椒。
   for (let c = 0; c < BOARD.cols; c++) push(5, c, 'right');
 
   push(4, 0, 'down');
@@ -933,8 +933,8 @@ function generateSolvableLayout(rows, cols, count, seed) {
   }
   shuffle(cells, random);
 
-  // 逆向构造：已放置的萝卜属于“更晚移除”的集合。
-  // 新加入的萝卜只要对这些更晚移除的萝卜存在一个畅通方向，
+  // 逆向构造：已放置的辣椒属于“更晚移除”的集合。
+  // 新加入的辣椒只要对这些更晚移除的辣椒存在一个畅通方向，
   // 那么按“最后加入的先移除”就天然存在至少一条完整解法。
   let attempts = 0;
 
