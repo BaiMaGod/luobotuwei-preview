@@ -93,26 +93,22 @@ init();
 loadLevel(1);
 animate();
 
+
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x86d85a);
+  scene.background = new THREE.Color(0x78c94a);
 
   camera = new THREE.OrthographicCamera(WORLD.left, WORLD.right, WORLD.top, WORLD.bottom, 0.1, 100);
   camera.position.set(0, 0, 20);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: false,
+    powerPreference: 'high-performance',
+  });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   DOM.game.appendChild(renderer.domElement);
-
-  scene.add(new THREE.HemisphereLight(0xfff8df, 0x3d7134, 2.8));
-  const light = new THREE.DirectionalLight(0xfff8e8, 2.45);
-  light.position.set(-6, 10, 12);
-  light.castShadow = true;
-  light.shadow.mapSize.set(1024, 1024);
-  scene.add(light);
 
   raycaster = new THREE.Raycaster();
   pointer = new THREE.Vector2();
@@ -146,245 +142,367 @@ function init() {
 }
 
 function createGround() {
-  const grass = new THREE.Mesh(
-    new THREE.PlaneGeometry(17, 28),
-    new THREE.MeshStandardMaterial({ color: 0x79c94d, roughness: 0.94 })
-  );
-  grass.position.z = -1.5;
-  grass.receiveShadow = true;
-  scene.add(grass);
+  const texture = makeCanvasTexture(960, 1620, (ctx, w, h) => {
+    const sx = w / (WORLD.right - WORLD.left);
+    const sy = h / (WORLD.top - WORLD.bottom);
+    const wx = x => (x - WORLD.left) * sx;
+    const wy = y => (WORLD.top - y) * sy;
 
-  const random = mulberry32(20260921);
-  const patches = new THREE.Group();
-  for (let i = 0; i < 120; i++) {
-    const color = i % 4 === 0 ? 0xa3de68 : i % 3 === 0 ? 0x67b844 : 0x86d557;
-    const patch = new THREE.Mesh(
-      new THREE.CircleGeometry(0.05 + random() * 0.08, 10),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28 + random() * 0.18 })
-    );
-    patch.position.set((random() - 0.5) * 15.6, (random() - 0.5) * 25.7, -1.34);
-    patch.scale.set(0.8 + random() * 1.7, 0.55 + random() * 1.2, 1);
-    patches.add(patch);
-  }
-  scene.add(patches);
+    const grass = ctx.createLinearGradient(0, 0, 0, h);
+    grass.addColorStop(0, '#8bd85b');
+    grass.addColorStop(0.56, '#78ca49');
+    grass.addColorStop(1, '#70c544');
+    ctx.fillStyle = grass;
+    ctx.fillRect(0, 0, w, h);
 
-  const decor = new THREE.Group();
-  const bushMatA = new THREE.MeshStandardMaterial({ color: 0x4da43d, roughness: 0.9 });
-  const bushMatB = new THREE.MeshStandardMaterial({ color: 0x6bbb45, roughness: 0.9 });
-  const stoneMat = new THREE.MeshStandardMaterial({ color: 0xb8b39b, roughness: 0.92 });
-  const bushSpots = [
-    [-4.45, 2.7, 0.82], [4.35, 2.3, 0.7], [-4.2, -3.9, 0.74],
-    [4.25, -4.3, 0.82], [-5.25, 9.6, 0.68], [5.3, -10.3, 0.72],
-  ];
-
-  for (const [x, y, scale] of bushSpots) {
-    const bush = new THREE.Group();
-    for (let i = 0; i < 5; i++) {
-      const puff = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10), i % 2 ? bushMatA : bushMatB);
-      const a = (i / 5) * Math.PI * 2;
-      puff.position.set(Math.cos(a) * 0.32, Math.sin(a) * 0.16, 0);
-      puff.scale.set(1, 0.72, 0.5);
-      bush.add(puff);
+    const random = mulberry32(20260921);
+    for (let i = 0; i < 170; i++) {
+      const x = random() * w;
+      const y = random() * h;
+      const r = 2 + random() * 5;
+      ctx.globalAlpha = 0.09 + random() * 0.09;
+      ctx.fillStyle = random() > 0.55 ? '#c1ee7e' : '#4ea73b';
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
     }
-    bush.position.set(x, y, -0.92);
-    bush.scale.setScalar(scale);
-    decor.add(bush);
-  }
+    ctx.globalAlpha = 1;
 
-  const flowerSpots = [
-    [-4.9, 5.3], [4.75, 4.4], [-4.65, 0.1], [4.75, -0.6],
-    [-4.8, -5.3], [4.7, -5.6], [-5.3, 11.1], [5.1, -11.3]
-  ];
-  for (let i = 0; i < flowerSpots.length; i++) {
-    const [x, y] = flowerSpots[i];
-    decor.add(makeGardenFlower(x, y, i % 3 === 0 ? 0xffd75a : 0xfff6db));
-  }
+    const pts = pathPoints.map(p => [wx(p.x), wy(p.y)]);
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
 
-  const stoneSpots = [[4.4,5.3],[-4.5,-2.1],[4.65,-6.0],[-5.0,8.8],[5.2,-8.7]];
-  for (const [x, y] of stoneSpots) {
-    const stone = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8), stoneMat);
-    stone.scale.set(1.15, 0.7, 0.45);
-    stone.position.set(x, y, -1.0);
-    stone.rotation.z = random() * Math.PI;
-    decor.add(stone);
-  }
+    ctx.strokeStyle = '#925f36';
+    ctx.lineWidth = ROAD.width * sx + 18;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke();
 
-  scene.add(decor);
-}
+    ctx.strokeStyle = '#e3aa62';
+    ctx.lineWidth = ROAD.width * sx;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke();
 
-function makeGardenFlower(x, y, petalColor) {
-  const flower = new THREE.Group();
-  const petalMat = new THREE.MeshBasicMaterial({ color: petalColor });
-  const centerMat = new THREE.MeshBasicMaterial({ color: 0xf6b634 });
-  for (let i = 0; i < 5; i++) {
-    const petal = new THREE.Mesh(new THREE.CircleGeometry(0.09, 10), petalMat);
-    const a = i / 5 * Math.PI * 2;
-    petal.position.set(Math.cos(a) * 0.12, Math.sin(a) * 0.12, 0);
-    petal.scale.set(0.9, 1.25, 1);
-    flower.add(petal);
-  }
-  flower.add(new THREE.Mesh(new THREE.CircleGeometry(0.065, 12), centerMat));
-  flower.position.set(x, y, -0.85);
-  return flower;
+    ctx.strokeStyle = 'rgba(255,230,166,.28)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1] - 18);
+    ctx.lineTo(pts[1][0], pts[1][1] - 18);
+    ctx.stroke();
+
+    const pebbleColor = ['#bd7d43', '#c78b4f', '#a96d38'];
+    for (let i = 0; i < 22; i++) {
+      const segment = i % (pathPoints.length - 1);
+      const a = pathPoints[segment];
+      const b = pathPoints[segment + 1];
+      const t = 0.08 + ((i * 0.137) % 0.84);
+      const px = THREE.MathUtils.lerp(a.x, b.x, t);
+      const py = THREE.MathUtils.lerp(a.y, b.y, t);
+      const horizontal = Math.abs(b.x - a.x) > Math.abs(b.y - a.y);
+      const jitter = ((i % 3) - 1) * 0.27;
+      ctx.fillStyle = pebbleColor[i % pebbleColor.length];
+      ctx.beginPath();
+      ctx.ellipse(
+        wx(px + (horizontal ? 0 : jitter)),
+        wy(py + (horizontal ? jitter : 0)),
+        6 + (i % 2) * 2,
+        3,
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
+
+    const bushes = [
+      [-4.55, 2.8, 0.7], [4.55, 2.25, 0.62], [-4.35, -4.25, 0.66],
+      [4.45, -4.35, 0.7], [-5.2, 9.5, 0.62], [5.0, -10.25, 0.64],
+    ];
+    for (const [x, y, scale] of bushes) drawFlatBush(ctx, wx(x), wy(y), scale * sx);
+
+    const flowers = [
+      [-4.9, 5.1, '#fff7df'], [4.85, 4.25, '#ffe16a'],
+      [-4.75, -0.4, '#fff7df'], [4.8, -0.75, '#fff7df'],
+      [-4.9, -5.65, '#ffe16a'], [4.75, -5.75, '#fff7df'],
+      [-5.25, 11.0, '#ffd96b'], [5.15, -11.15, '#fff7df'],
+    ];
+    for (const [x, y, color] of flowers) drawFlatFlower(ctx, wx(x), wy(y), color, sx * 0.2);
+
+    const stones = [[4.4,5.15],[-4.65,-2.05],[4.62,-6.0],[-5.0,8.8],[5.1,-8.7]];
+    for (let i = 0; i < stones.length; i++) {
+      const [x, y] = stones[i];
+      ctx.fillStyle = i % 2 ? '#b5b3a4' : '#c7c4b4';
+      ctx.strokeStyle = '#8f907f';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(wx(x), wy(y), 13, 9, -0.25, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.translate(wx(ROAD.leftX), wy(ROAD.topY - 0.35));
+    ctx.fillStyle = '#8b5a34';
+    ctx.strokeStyle = '#684126';
+    ctx.lineWidth = 5;
+    roundRectPath(ctx, -56, 28, 112, 24, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: false,
+    depthTest: false,
+    depthWrite: false,
+  }));
+  sprite.position.set(0, 0, -8);
+  sprite.scale.set(WORLD.right - WORLD.left, WORLD.top - WORLD.bottom, 1);
+  scene.add(sprite);
 }
 
 function createRoad() {
   roadGroup = new THREE.Group();
-  const roadMaterial = new THREE.MeshStandardMaterial({ color: 0xe1a663, roughness: 0.88 });
-  const roadLight = new THREE.MeshStandardMaterial({ color: 0xefbd79, roughness: 0.9 });
-  const edgeMaterial = new THREE.MeshStandardMaterial({ color: 0x936039, roughness: 0.94 });
-  const pebbleMat = new THREE.MeshStandardMaterial({ color: 0xc88f54, roughness: 0.95 });
-  const random = mulberry32(7031);
-
-  for (let i = 0; i < pathPoints.length - 1; i++) {
-    const a = pathPoints[i];
-    const b = pathPoints[i + 1];
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const len = Math.hypot(dx, dy);
-    const horizontal = Math.abs(dx) > Math.abs(dy);
-
-    const edge = new THREE.Mesh(
-      new THREE.BoxGeometry(horizontal ? len + 0.24 : ROAD.width + 0.28, horizontal ? ROAD.width + 0.28 : len + 0.24, 0.12),
-      edgeMaterial
-    );
-    edge.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, -0.75);
-    edge.receiveShadow = true;
-    roadGroup.add(edge);
-
-    const road = new THREE.Mesh(
-      new THREE.BoxGeometry(horizontal ? len : ROAD.width, horizontal ? ROAD.width : len, 0.18),
-      i === 0 ? roadLight : roadMaterial
-    );
-    road.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, -0.61);
-    road.receiveShadow = true;
-    roadGroup.add(road);
-
-    const pebbleCount = Math.max(2, Math.floor(len / 2.2));
-    for (let p = 0; p < pebbleCount; p++) {
-      const t = (p + 0.45 + random() * 0.15) / pebbleCount;
-      const pebble = new THREE.Mesh(new THREE.SphereGeometry(0.09 + random() * 0.04, 10, 7), pebbleMat);
-      pebble.scale.set(1.25, 0.7, 0.38);
-      const jitter = (random() - 0.5) * ROAD.width * 0.46;
-      pebble.position.set(
-        THREE.MathUtils.lerp(a.x, b.x, t) + (horizontal ? 0 : jitter),
-        THREE.MathUtils.lerp(a.y, b.y, t) + (horizontal ? jitter : 0),
-        -0.45
-      );
-      roadGroup.add(pebble);
-    }
-  }
-
   scene.add(roadGroup);
 }
 
 function createSunflower() {
-  sunflower = new THREE.Group();
+  const texture = getTexture('cat', createCatTexture);
+  sunflower = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  }));
   sunflower.userData.kind = 'cat-mascot';
-
-  const orange = new THREE.MeshStandardMaterial({ color: 0xf59a43, roughness: 0.48, metalness: 0.02 });
-  const cream = new THREE.MeshStandardMaterial({ color: 0xfff0d5, roughness: 0.6 });
-  const white = new THREE.MeshStandardMaterial({ color: 0xfffbef, roughness: 0.55 });
-  const pink = new THREE.MeshStandardMaterial({ color: 0xf58a8d, roughness: 0.55 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x39261f, roughness: 0.5 });
-  const red = new THREE.MeshStandardMaterial({ color: 0xd94735, roughness: 0.48 });
-  const gold = new THREE.MeshStandardMaterial({ color: 0xf6bf39, roughness: 0.32, metalness: 0.15 });
-  const wood = new THREE.MeshStandardMaterial({ color: 0x8f5d35, roughness: 0.86 });
-
-  const perch = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.28, 0.34), wood);
-  perch.position.set(0, -1.05, -0.04);
-  perch.castShadow = true;
-  sunflower.add(perch);
-
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.58, 24, 18), orange);
-  body.scale.set(0.9, 1.08, 0.72);
-  body.position.set(0, -0.5, 0.22);
-  body.castShadow = true;
-  sunflower.add(body);
-
-  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.36, 20, 14), cream);
-  belly.scale.set(0.95, 1.12, 0.45);
-  belly.position.set(0, -0.53, 0.65);
-  sunflower.add(belly);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.64, 26, 20), orange);
-  head.scale.set(1.02, 0.93, 0.72);
-  head.position.set(0, 0.26, 0.35);
-  head.castShadow = true;
-  sunflower.add(head);
-
-  for (const side of [-1, 1]) {
-    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.29, 0.5, 3), orange);
-    ear.position.set(side * 0.4, 0.75, 0.28);
-    ear.rotation.z = side * -0.13;
-    ear.castShadow = true;
-    sunflower.add(ear);
-
-    const innerEar = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.28, 3), pink);
-    innerEar.position.set(side * 0.4, 0.77, 0.52);
-    innerEar.rotation.z = side * -0.13;
-    sunflower.add(innerEar);
-  }
-
-  for (const side of [-1, 1]) {
-    const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), white);
-    eyeWhite.scale.set(0.9, 1.16, 0.44);
-    eyeWhite.position.set(side * 0.23, 0.34, 0.9);
-    sunflower.add(eyeWhite);
-
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.07, 14, 10), dark);
-    pupil.scale.set(0.9, 1.12, 0.5);
-    pupil.position.set(side * 0.23, 0.33, 1.005);
-    sunflower.add(pupil);
-
-    const sparkle = new THREE.Mesh(new THREE.SphereGeometry(0.024, 10, 8), white);
-    sparkle.position.set(side * 0.205, 0.37, 1.065);
-    sunflower.add(sparkle);
-
-    const cheek = new THREE.Mesh(new THREE.CircleGeometry(0.075, 14), new THREE.MeshBasicMaterial({ color: 0xff9e8c, transparent: true, opacity: 0.8 }));
-    cheek.position.set(side * 0.38, 0.12, 1.045);
-    sunflower.add(cheek);
-  }
-
-  const muzzleL = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), white);
-  muzzleL.scale.set(1.1, 0.82, 0.45);
-  muzzleL.position.set(-0.1, 0.12, 0.96);
-  sunflower.add(muzzleL);
-  const muzzleR = muzzleL.clone();
-  muzzleR.position.x = 0.1;
-  sunflower.add(muzzleR);
-
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), pink);
-  nose.scale.set(1.15, 0.75, 0.65);
-  nose.position.set(0, 0.17, 1.08);
-  sunflower.add(nose);
-
-  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.075, 10, 26), red);
-  collar.position.set(0, -0.2, 0.54);
-  collar.scale.set(1, 0.38, 1);
-  sunflower.add(collar);
-
-  const bell = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), gold);
-  bell.position.set(0, -0.31, 0.93);
-  sunflower.add(bell);
-
-  for (const side of [-1, 1]) {
-    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12), white);
-    paw.scale.set(1.2, 0.72, 0.7);
-    paw.position.set(side * 0.28, -0.88, 0.58);
-    sunflower.add(paw);
-  }
-
-  const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.72, 5, 12), orange);
-  tail.position.set(-0.63, -0.56, 0.18);
-  tail.rotation.z = -0.95;
-  tail.castShadow = true;
-  sunflower.add(tail);
-
-  sunflower.position.set(ROAD.leftX, ROAD.topY - 0.35, 0.25);
-  sunflower.scale.setScalar(0.95);
+  sunflower.position.set(ROAD.leftX, ROAD.topY - 0.28, 2.5);
+  sunflower.scale.set(2.1, 2.1, 1);
   scene.add(sunflower);
 }
+
+function makeCanvasTexture(width, height, draw) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  draw(ctx, width, height);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  texture.userData.shared = true;
+  return texture;
+}
+
+const textureCache = new Map();
+
+function getTexture(key, factory) {
+  if (!textureCache.has(key)) textureCache.set(key, factory());
+  return textureCache.get(key);
+}
+
+function roundRectPath(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+function drawFlatBush(ctx, x, y, size) {
+  ctx.save();
+  ctx.strokeStyle = '#2d7b36';
+  ctx.lineWidth = Math.max(2, size * 0.04);
+  const colors = ['#469f3b', '#58ae42', '#6cbd49'];
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const px = x + Math.cos(a) * size * 0.22;
+    const py = y + Math.sin(a) * size * 0.10;
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.beginPath();
+    ctx.ellipse(px, py, size * 0.24, size * 0.17, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawFlatFlower(ctx, x, y, petal, size) {
+  ctx.save();
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    ctx.fillStyle = petal;
+    ctx.beginPath();
+    ctx.ellipse(
+      x + Math.cos(a) * size * 0.6,
+      y + Math.sin(a) * size * 0.6,
+      size * 0.48,
+      size * 0.7,
+      a,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+  ctx.fillStyle = '#f4b92b';
+  ctx.beginPath();
+  ctx.arc(x, y, size * 0.34, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function createCatTexture() {
+  return makeCanvasTexture(512, 512, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    ctx.save();
+    ctx.translate(256, 270);
+
+    ctx.fillStyle = 'rgba(64,71,35,.16)';
+    ctx.beginPath();
+    ctx.ellipse(0, 136, 112, 27, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#f49a42';
+    ctx.strokeStyle = '#7e482a';
+    ctx.lineWidth = 12;
+
+    ctx.beginPath();
+    ctx.moveTo(-110, -100);
+    ctx.lineTo(-74, -182);
+    ctx.lineTo(-32, -110);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(110, -100);
+    ctx.lineTo(74, -182);
+    ctx.lineTo(32, -110);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f69ca0';
+    ctx.beginPath();
+    ctx.moveTo(-91, -114);
+    ctx.lineTo(-73, -154);
+    ctx.lineTo(-52, -116);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(91, -114);
+    ctx.lineTo(73, -154);
+    ctx.lineTo(52, -116);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#f49a42';
+    ctx.beginPath();
+    ctx.ellipse(0, 54, 93, 112, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff3da';
+    ctx.beginPath();
+    ctx.ellipse(0, 72, 55, 72, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#f49a42';
+    ctx.beginPath();
+    ctx.ellipse(0, -62, 124, 108, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff7e7';
+    ctx.beginPath();
+    ctx.ellipse(-28, -22, 34, 28, 0, 0, Math.PI * 2);
+    ctx.ellipse(28, -22, 34, 28, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#3b2a25';
+    for (const x of [-45, 45]) {
+      ctx.beginPath();
+      ctx.ellipse(x, -70, 18, 25, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(x - 5, -79, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#3b2a25';
+    }
+
+    ctx.fillStyle = '#f38e93';
+    ctx.beginPath();
+    ctx.moveTo(0, -36);
+    ctx.lineTo(-9, -26);
+    ctx.lineTo(9, -26);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#5d392b';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(-9, -20, 16, 0.2, 1.2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(9, -20, 16, Math.PI - 1.2, Math.PI - 0.2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#f5a099';
+    ctx.globalAlpha = 0.78;
+    ctx.beginPath();
+    ctx.ellipse(-78, -28, 18, 10, 0, 0, Math.PI * 2);
+    ctx.ellipse(78, -28, 18, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = '#d94336';
+    ctx.lineWidth = 18;
+    ctx.beginPath();
+    ctx.arc(0, 5, 62, 0.22, Math.PI - 0.22);
+    ctx.stroke();
+
+    ctx.fillStyle = '#f5be36';
+    ctx.strokeStyle = '#9d6919';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(0, 32, 17, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff7e7';
+    ctx.strokeStyle = '#7e482a';
+    ctx.lineWidth = 9;
+    for (const x of [-48, 48]) {
+      ctx.beginPath();
+      ctx.ellipse(x, 132, 32, 19, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = '#d87832';
+    ctx.lineWidth = 13;
+    ctx.beginPath();
+    ctx.moveTo(-58, -112);
+    ctx.lineTo(-42, -90);
+    ctx.moveTo(58, -112);
+    ctx.lineTo(42, -90);
+    ctx.stroke();
+
+    ctx.restore();
+  });
+}
+
 
 function loadLevel(nextLevel) {
   level = nextLevel;
