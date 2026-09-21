@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#8bcf55" />
+  <meta name="theme-color" content="#78c94b" />
   <title>辣椒小猫咪</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=art-20260921-1" />
 </head>
 <body>
   <main class="app-shell" id="app">
@@ -13,40 +13,36 @@
       <div id="game"></div>
 
       <header class="hud">
-        <div class="hud-pill" id="lives" aria-label="生命值">❤️❤️❤️</div>
-        <div class="hud-center">
-          <div class="hud-brand" aria-label="辣椒小猫咪">
-            <span class="brand-pepper">🌶️</span>
-            <span class="brand-text">辣椒小猫咪</span>
-            <span class="brand-pepper mirror">🌶️</span>
-          </div>
-          <strong id="levelLabel">第 1 关</strong>
-          <span id="waveLabel">怪物 0 / 0</span>
+        <div class="lives-board" id="lives" aria-label="生命值">
+          <i class="life-heart"></i><i class="life-heart"></i><i class="life-heart"></i>
         </div>
-        <div class="hud-pill combo" id="comboLabel">COMBO ×0</div>
+
+        <div class="hud-center sprite-ui title-board">
+          <div class="brand-text">辣椒小猫咪</div>
+          <strong id="levelLabel">第 1 关</strong>
+          <span id="waveLabel">怪物 0 / 7</span>
+        </div>
+
+        <div class="combo-board sprite-ui">
+          <span id="comboLabel">×0</span>
+        </div>
       </header>
 
-      <div class="tutorial" id="tutorial">
+      <div class="tutorial sprite-ui" id="tutorial">
         <span id="tutorialText">尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！</span>
       </div>
 
       <div class="floating-message" id="floatingMessage" aria-live="polite"></div>
 
       <nav class="tools" aria-label="局内道具">
-        <button class="tool-button" id="hammerButton" type="button">
-          <span class="tool-icon">🔨</span>
-          <span>移除</span>
-          <b id="hammerCount">×1</b>
+        <button class="tool-button tool-remove sprite-ui" id="hammerButton" type="button" aria-label="移除 x1">
+          <span class="sr-only">移除</span><b class="sr-only" id="hammerCount">×1</b>
         </button>
-        <button class="tool-button" id="freezeButton" type="button">
-          <span class="tool-icon">❄️</span>
-          <span>冰冻</span>
-          <b id="freezeCount">×1</b>
+        <button class="tool-button tool-freeze sprite-ui" id="freezeButton" type="button" aria-label="冰冻 x1">
+          <span class="sr-only">冰冻</span><b class="sr-only" id="freezeCount">×1</b>
         </button>
-        <button class="tool-button" id="bombButton" type="button">
-          <span class="tool-icon">💣</span>
-          <span>炸弹</span>
-          <b id="bombCount">×1</b>
+        <button class="tool-button tool-bomb sprite-ui" id="bombButton" type="button" aria-label="炸弹 x1">
+          <span class="sr-only">炸弹</span><b class="sr-only" id="bombCount">×1</b>
         </button>
       </nav>
 
@@ -67,7 +63,6 @@
     </section>
   </main>
 
-  <script src="./main.js?v=canvas2d-20260921-2"></script>
-  <!-- GitHub Pages deployment trigger -->
+  <script src="./main.js?v=art-20260921-1"></script>
 </body>
 </html>
