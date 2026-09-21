@@ -4,17 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#8bcf55" />
-  <title>萝卜突围</title>
+  <title>辣椒小猫咪</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <main class="app-shell" id="app">
-    <section class="game-card" aria-label="萝卜突围游戏区域">
+    <section class="game-card" aria-label="辣椒小猫咪游戏区域">
       <div id="game"></div>
 
       <header class="hud">
         <div class="hud-pill" id="lives" aria-label="生命值">❤️❤️❤️</div>
         <div class="hud-center">
+          <div class="hud-brand" aria-label="辣椒小猫咪">
+            <span class="brand-pepper">🌶️</span>
+            <span class="brand-text">辣椒小猫咪</span>
+            <span class="brand-pepper mirror">🌶️</span>
+          </div>
           <strong id="levelLabel">第 1 关</strong>
           <span id="waveLabel">怪物 0 / 0</span>
         </div>
@@ -22,7 +27,7 @@
       </header>
 
       <div class="tutorial" id="tutorial">
-        <span id="tutorialText">尖端就是方向，点击能直线飞出的萝卜！</span>
+        <span id="tutorialText">尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！</span>
       </div>
 
       <div class="floating-message" id="floatingMessage" aria-live="polite"></div>
@@ -47,9 +52,9 @@
 
       <section class="modal hidden" id="resultModal" role="dialog" aria-modal="true">
         <div class="modal-card">
-          <div class="result-icon" id="resultIcon">🌻</div>
+          <div class="result-icon" id="resultIcon">🐱</div>
           <h1 id="resultTitle">守住了！</h1>
-          <p id="resultSubtitle">萝卜们成功挡住了怪潮</p>
+          <p id="resultSubtitle">辣椒们成功帮小猫咪挡住了怪潮</p>
           <div class="result-grid">
             <span>命中率</span><strong id="accuracyValue">0%</strong>
             <span>最高连击</span><strong id="bestComboValue">0</strong>
