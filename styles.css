@@ -65,7 +65,7 @@ button { font: inherit; }
 }
 
 .sprite-ui {
-  background-image: url("./assets/chili-cat-sprite.webp?v=1");
+  background-image: url("./assets/chili-cat-sprite.webp?v=hell-20260923-1");
   background-repeat: no-repeat;
 }
 
@@ -105,7 +105,7 @@ button { font: inherit; }
   width: 25px;
   aspect-ratio: 1;
   flex: none;
-  background-image: url("./assets/chili-cat-sprite.webp?v=1");
+  background-image: url("./assets/chili-cat-sprite.webp?v=hell-20260923-1");
   background-repeat: no-repeat;
   background-size: 1181.5385% 886.1538%;
   background-position: 58.32% 51.86%;
