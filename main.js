@@ -30,7 +30,7 @@
   const W = 900;
   const H = 1600;
   const ASSET_URL = './assets/chili-cat-sprite.webp?v=1';
-  const BACKGROUND_URL = './assets/garden-background.svg?v=1';
+  const BACKGROUND_URL = './assets/garden-background.svg?v=2';
   const SPRITES = {
     title: [0, 0, 650, 488],
     tutorial: [670, 0, 840, 280],
@@ -53,11 +53,11 @@
   const BOARD = { rows: 6, cols: 5, cell: 108, centerX: 450, centerY: 765 };
   const ROAD = { width: 82 };
   const PATH_POINTS = [
-    { x: 310, y: 390 },
-    { x: 790, y: 390 },
-    { x: 790, y: 1190 },
-    { x: 100, y: 1190 },
-    { x: 100, y: 470 },
+    { x: 245, y: 405 },
+    { x: 795, y: 405 },
+    { x: 795, y: 1195 },
+    { x: 105, y: 1195 },
+    { x: 105, y: 535 },
   ];
   const PATH = buildPathData(PATH_POINTS);
   const PROJECTILE_SPEED = 880;
