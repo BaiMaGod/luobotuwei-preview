@@ -29,8 +29,8 @@
 
   const W = 900;
   const H = 1600;
-  const ASSET_URL = './assets/chili-cat-sprite.webp?v=1';
-  const BACKGROUND_URL = './assets/garden-background.svg?v=2';
+  const ASSET_URL = './assets/chili-cat-sprite.webp?v=hell-20260923-1';
+  const BACKGROUND_URL = './assets/garden-background.svg?v=hell-20260923-1';
   const SPRITES = {
     title: [0, 0, 650, 488],
     tutorial: [670, 0, 840, 280],
@@ -50,7 +50,9 @@
     left: { dr: 0, dc: -1, x: -1, y: 0, angle: -Math.PI / 2 },
   };
   const DIR_NAMES = Object.keys(DIRS);
-  const BOARD = { rows: 6, cols: 5, cell: 108, centerX: 450, centerY: 765 };
+  const DEFAULT_BOARD = Object.freeze({ rows: 6, cols: 5, cell: 108, centerX: 450, centerY: 765 });
+  const LEVEL2_BOARD = Object.freeze({ rows: 7, cols: 6, cell: 90, centerX: 450, centerY: 765 });
+  const BOARD = { ...DEFAULT_BOARD };
   const ROAD = { width: 82 };
   const PATH_POINTS = [
     { x: 245, y: 405 },
@@ -92,6 +94,7 @@
   let hintTarget = null;
   let hintUntil = 0;
   let catHitTimer = 0;
+  let level2LayoutSerial = 0;
   let carrots = [];
   let carrotByCell = new Map();
   let projectiles = [];
@@ -330,13 +333,16 @@
 
   function loadLevel(nextLevel) {
     level = nextLevel;
+    const level2Hell = level === 2;
+    Object.assign(BOARD, level2Hell ? LEVEL2_BOARD : DEFAULT_BOARD);
+
     gameState = 'playing';
     lives = 3;
-    totalEnemies = level === 2 ? 18 : 6 + Math.ceil(level * 0.7);
+    totalEnemies = level2Hell ? 26 : 6 + Math.ceil(level * 0.7);
     spawnedEnemies = 0;
     defeatedEnemies = 0;
-    spawnInterval = level === 2 ? 0.58 : Math.max(0.68, 1.18 - level * 0.035);
-    spawnTimer = level === 2 ? 0.08 : 0.5;
+    spawnInterval = level2Hell ? 0.44 : Math.max(0.68, 1.18 - level * 0.035);
+    spawnTimer = level2Hell ? 0.02 : 0.5;
     toolMode = null;
     toolsLeft = { hammer: 1, freeze: 1, bomb: 1 };
     freezeTimer = 0;
@@ -355,7 +361,7 @@
     lastHintAt = performance.now();
 
     const count = Math.min(14 + level * 2, BOARD.rows * BOARD.cols - 3);
-    const layout = level === 2
+    const layout = level2Hell
       ? generateLevel2HardLayout()
       : generateSolvableLayout(BOARD.rows, BOARD.cols, count, 5000 + level * 7919);
 
@@ -366,8 +372,10 @@
     DOM.waveLabel.textContent = `怪物 0 / ${totalEnemies}`;
     DOM.resultModal.classList.add('hidden');
     DOM.tutorial.classList.remove('hidden');
-    DOM.tutorialText.textContent = '尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！';
-    tutorialDismissTimer = level === 1 ? 7 : 3.5;
+    DOM.tutorialText.textContent = level2Hell
+      ? '地狱模式：辣椒更密、更乱，只有极少数起手能直接突围！'
+      : '尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！';
+    tutorialDismissTimer = level === 1 ? 7 : (level2Hell ? 1.6 : 3.5);
     updateHUD();
     updateToolButtons();
     updateDebugDataset();
@@ -392,7 +400,7 @@
 
   function createEnemy(type = 'normal') {
     const config = enemyConfig(type);
-    const level2HpBoost = level === 2 ? 1.65 : 1;
+    const level2HpBoost = level === 2 ? 2.0 : 1;
     const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045) * level2HpBoost);
     const start = PATH_POINTS[0];
     enemies.push({
@@ -404,7 +412,7 @@
       hp: maxHp,
       maxHp,
       radius: config.radius,
-      speed: config.speed * (1 + (level - 1) * 0.018) * (level === 2 ? 1.22 : 1),
+      speed: config.speed * (1 + (level - 1) * 0.018) * (level === 2 ? 1.26 : 1),
       active: true,
       hitFlash: 0,
     });
@@ -418,8 +426,8 @@
 
   function chooseEnemyType(index) {
     if (level === 2) {
-      if ([4, 8, 12, 16].includes(index)) return 'tank';
-      if ([1, 3, 6, 10, 13, 15].includes(index)) return 'fast';
+      if ([3, 7, 11, 15, 19, 23].includes(index)) return 'tank';
+      if ([1, 2, 5, 6, 9, 10, 13, 14, 17, 18, 21, 24].includes(index)) return 'fast';
       return 'normal';
     }
     if (level >= 4 && index % 6 === 5) return 'tank';
@@ -603,6 +611,11 @@
   }
 
   function updateHint(now) {
+    if (level === 2) {
+      hintTarget = null;
+      hintUntil = 0;
+      return;
+    }
     if (now - lastHintAt < 3200) return;
     lastHintAt = now;
     const available = carrots.filter(c => c.active && !isBlocked(c));
@@ -976,19 +989,51 @@
   }
 
   function generateLevel2HardLayout() {
+    level2LayoutSerial++;
+
+    // 7x6 满格：42 个辣椒。方向数量保持接近均衡（11/11/10/10），
+    // 初始只有 2 个出口可用，必须按链式顺序逐步拆开。
+    const baseDirections = [
+      ['up', 'left', 'left', 'left', 'down', 'down'],
+      ['up', 'up', 'down', 'up', 'down', 'left'],
+      ['up', 'left', 'right', 'up', 'right', 'down'],
+      ['up', 'up', 'left', 'down', 'down', 'left'],
+      ['up', 'left', 'right', 'right', 'down', 'down'],
+      ['right', 'up', 'right', 'down', 'right', 'down'],
+      ['up', 'left', 'left', 'right', 'right', 'right'],
+    ];
+
+    const variant = level2LayoutSerial % 4;
+    const flipX = variant === 1 || variant === 3;
+    const flipY = variant === 2 || variant === 3;
+    const flipDirX = dir => dir === 'left' ? 'right' : (dir === 'right' ? 'left' : dir);
+    const flipDirY = dir => dir === 'up' ? 'down' : (dir === 'down' ? 'up' : dir);
+
     const layout = [];
-    const push = (row, col, dir, type = 'normal') => layout.push({ row, col, dir, type });
-    push(0, 0, 'left');
-    for (let c = 1; c < BOARD.cols; c++) push(0, c, 'left');
-    for (let c = 0; c < BOARD.cols - 1; c++) push(1, c, 'right');
-    push(1, BOARD.cols - 1, 'up');
-    push(2, 0, 'up');
-    for (let c = 1; c < BOARD.cols; c++) push(2, c, 'left');
-    for (let c = 0; c < BOARD.cols; c++) push(5, c, 'right');
-    push(4, 0, 'down');
-    for (let c = 1; c < BOARD.cols; c++) push(4, c, 'left');
-    for (let c = 0; c < BOARD.cols - 1; c++) push(3, c, 'right');
-    push(3, BOARD.cols - 1, 'down');
+    for (let row = 0; row < baseDirections.length; row++) {
+      for (let col = 0; col < baseDirections[row].length; col++) {
+        let targetRow = row;
+        let targetCol = col;
+        let dir = baseDirections[row][col];
+
+        if (flipX) {
+          targetCol = BOARD.cols - 1 - targetCol;
+          dir = flipDirX(dir);
+        }
+        if (flipY) {
+          targetRow = BOARD.rows - 1 - targetRow;
+          dir = flipDirY(dir);
+        }
+
+        layout.push({
+          row: targetRow,
+          col: targetCol,
+          dir,
+          type: 'normal',
+        });
+      }
+    }
+
     return layout;
   }
 
@@ -1111,6 +1156,8 @@
     DOM.game.dataset.projectiles = String(projectiles.length);
     DOM.game.dataset.activeEnemies = String(enemies.filter(e => e.active).length);
     DOM.game.dataset.state = gameState;
+    DOM.game.dataset.board = `${BOARD.rows}x${BOARD.cols}`;
+    DOM.game.dataset.availablePeppers = String(carrots.filter(c => c.active && !isBlocked(c)).length);
   }
 
   function showFatalError(error) {
