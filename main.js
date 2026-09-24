@@ -29,8 +29,8 @@
 
   const W = 900;
   const H = 1600;
-  const ASSET_URL = './assets/chili-cat-sprite.webp?v=nightmare-20260923-2';
-  const BACKGROUND_URL = './assets/garden-background.svg?v=nightmare-20260923-2';
+  const ASSET_URL = './assets/chili-cat-sprite.webp?v=curve-20260924-1';
+  const BACKGROUND_URL = './assets/garden-background.svg?v=curve-20260924-1';
   const SPRITES = {
     title: [0, 0, 650, 488],
     tutorial: [670, 0, 840, 280],
@@ -51,23 +51,139 @@
   };
   const DIR_NAMES = Object.keys(DIRS);
   const DEFAULT_BOARD = Object.freeze({ rows: 6, cols: 5, cell: 108, centerX: 450, centerY: 765 });
-  const LEVEL2_BOARD = Object.freeze({ rows: 7, cols: 6, cell: 90, centerX: 450, centerY: 765 });
+  const ADVANCED_BOARD = Object.freeze({ rows: 7, cols: 6, cell: 90, centerX: 450, centerY: 765 });
+
+  // 从第 2 关开始，所有关卡维持 42/42 辣椒满铺；
+  // 后续关卡通过“清盘要求 + 怪物数量/血量/速度 + 刷怪频率 + Boss 数量 + 容错资源”严格递增。
+  const LEVEL_PROGRESSION = Object.freeze({
+    2: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 28, spawnInterval: 0.42, hpBoost: 2.05, speedBoost: 1.28,
+      requiredClearCount: 41, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 1, bomb: 1 }),
+      bossCount: 1, tankEvery: 4, fastEvery: 3,
+    }),
+    3: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 30, spawnInterval: 0.40, hpBoost: 2.16, speedBoost: 1.30,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 1, bomb: 1 }),
+      bossCount: 1, tankEvery: 4, fastEvery: 3,
+    }),
+    4: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 32, spawnInterval: 0.38, hpBoost: 2.28, speedBoost: 1.32,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 1, bomb: 0 }),
+      bossCount: 1, tankEvery: 4, fastEvery: 3,
+    }),
+    5: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 34, spawnInterval: 0.36, hpBoost: 2.42, speedBoost: 1.34,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 1, bomb: 0 }),
+      bossCount: 2, tankEvery: 4, fastEvery: 2,
+    }),
+    6: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 36, spawnInterval: 0.34, hpBoost: 2.58, speedBoost: 1.36,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 0, bomb: 1 }),
+      bossCount: 2, tankEvery: 3, fastEvery: 2,
+    }),
+    7: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 38, spawnInterval: 0.32, hpBoost: 2.76, speedBoost: 1.38,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 0, bomb: 0 }),
+      bossCount: 2, tankEvery: 3, fastEvery: 2,
+    }),
+    8: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 40, spawnInterval: 0.30, hpBoost: 2.96, speedBoost: 1.40,
+      requiredClearCount: 42, lives: 2,
+      tools: Object.freeze({ hammer: 1, freeze: 0, bomb: 0 }),
+      bossCount: 3, tankEvery: 3, fastEvery: 2,
+    }),
+    9: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 42, spawnInterval: 0.28, hpBoost: 3.18, speedBoost: 1.43,
+      requiredClearCount: 42, lives: 2,
+      tools: Object.freeze({ hammer: 0, freeze: 1, bomb: 0 }),
+      bossCount: 3, tankEvery: 3, fastEvery: 2,
+    }),
+    10: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 45, spawnInterval: 0.26, hpBoost: 3.42, speedBoost: 1.46,
+      requiredClearCount: 42, lives: 2,
+      tools: Object.freeze({ hammer: 0, freeze: 0, bomb: 0 }),
+      bossCount: 4, tankEvery: 2, fastEvery: 2,
+    }),
+  });
+
   const LEVEL2_HELL = Object.freeze({
-    pepperCount: 42,
-    pepperScale: 0.88,
-    enemyCount: 28,
-    spawnInterval: 0.42,
-    hpBoost: 2.05,
-    speedBoost: 1.28,
-    requiredClearCount: 41,
-    requiredClearRatio: 41 / 42,
+    ...LEVEL_PROGRESSION[2],
+    requiredClearRatio: LEVEL_PROGRESSION[2].requiredClearCount / LEVEL_PROGRESSION[2].pepperCount,
     minDirectionEntropy: 0.95,
     maxInitialAvailable: 2,
     minUnlockDepth: 18,
     maxEarlyChoices: 2.5,
   });
+
   const BOARD = { ...DEFAULT_BOARD };
   const ROAD = { width: 82 };
+
+  function getLevelProfile(levelNumber = level) {
+    return LEVEL_PROGRESSION[levelNumber] || null;
+  }
+
+  function getToolCount(toolSet) {
+    return (toolSet.hammer || 0) + (toolSet.freeze || 0) + (toolSet.bomb || 0);
+  }
+
+  function computeProgressionIndex(profile) {
+    const toolCount = getToolCount(profile.tools);
+    return (
+      profile.enemyCount * 1.25 +
+      profile.hpBoost * 16 +
+      profile.speedBoost * 18 +
+      (1 / profile.spawnInterval) * 10 +
+      profile.requiredClearCount * 0.75 +
+      profile.bossCount * 4 +
+      (3 - toolCount) * 5 +
+      (3 - profile.lives) * 8 +
+      (5 - profile.tankEvery) * 2 +
+      (4 - profile.fastEvery) * 1.5
+    );
+  }
+
+  function validateDifficultyProgression() {
+    let previous = -Infinity;
+    let previousProfile = null;
+
+    for (let levelNumber = 2; levelNumber <= MAX_LEVEL; levelNumber++) {
+      const profile = getLevelProfile(levelNumber);
+      if (!profile) throw new Error(`缺少第 ${levelNumber} 关难度配置`);
+
+      const index = computeProgressionIndex(profile);
+      if (index <= previous) {
+        throw new Error(`难度曲线异常：第 ${levelNumber} 关没有比前一关更难`);
+      }
+
+      if (previousProfile) {
+        if (profile.enemyCount < previousProfile.enemyCount) throw new Error(`第 ${levelNumber} 关怪物数量下降`);
+        if (profile.hpBoost <= previousProfile.hpBoost) throw new Error(`第 ${levelNumber} 关怪物血量压力未提升`);
+        if (profile.speedBoost <= previousProfile.speedBoost) throw new Error(`第 ${levelNumber} 关怪物速度压力未提升`);
+        if (profile.spawnInterval >= previousProfile.spawnInterval) throw new Error(`第 ${levelNumber} 关刷怪频率未提升`);
+        if (profile.requiredClearCount < previousProfile.requiredClearCount) throw new Error(`第 ${levelNumber} 关清盘要求下降`);
+        if (profile.lives > previousProfile.lives) throw new Error(`第 ${levelNumber} 关生命容错增加`);
+        if (getToolCount(profile.tools) > getToolCount(previousProfile.tools)) throw new Error(`第 ${levelNumber} 关道具容错增加`);
+      }
+
+      previous = index;
+      previousProfile = profile;
+    }
+  }
   const PATH_POINTS = [
     { x: 245, y: 405 },
     { x: 795, y: 405 },
@@ -154,6 +270,7 @@
         DOM.game.dataset.background = 'fallback';
       }
 
+      validateDifficultyProgression();
       backgroundCanvas = createBackgroundCanvas();
       bindEvents();
       loadLevel(1);
@@ -349,18 +466,19 @@
 
   function loadLevel(nextLevel) {
     level = nextLevel;
-    const level2Hell = level === 2;
-    Object.assign(BOARD, level2Hell ? LEVEL2_BOARD : DEFAULT_BOARD);
+    const profile = getLevelProfile(level);
+    const advanced = Boolean(profile);
+    Object.assign(BOARD, advanced ? ADVANCED_BOARD : DEFAULT_BOARD);
 
     gameState = 'playing';
-    lives = 3;
-    totalEnemies = level2Hell ? LEVEL2_HELL.enemyCount : 6 + Math.ceil(level * 0.7);
+    lives = profile ? profile.lives : 3;
+    totalEnemies = profile ? profile.enemyCount : 6 + Math.ceil(level * 0.7);
     spawnedEnemies = 0;
     defeatedEnemies = 0;
-    spawnInterval = level2Hell ? LEVEL2_HELL.spawnInterval : Math.max(0.68, 1.18 - level * 0.035);
-    spawnTimer = level2Hell ? 0.02 : 0.5;
+    spawnInterval = profile ? profile.spawnInterval : Math.max(0.68, 1.18 - level * 0.035);
+    spawnTimer = profile ? 0.02 : 0.5;
     toolMode = null;
-    toolsLeft = { hammer: 1, freeze: 1, bomb: 1 };
+    toolsLeft = profile ? { ...profile.tools } : { hammer: 1, freeze: 1, bomb: 1 };
     freezeTimer = 0;
     feverTimer = 0;
     combo = 0;
@@ -378,12 +496,12 @@
     lastArmorHintAt = 0;
 
     const count = Math.min(14 + level * 2, BOARD.rows * BOARD.cols - 3);
-    const layout = level2Hell
+    const layout = advanced
       ? generateLevel2HardLayout()
       : generateSolvableLayout(BOARD.rows, BOARD.cols, count, 5000 + level * 7919);
 
     difficultyReport = evaluateLevelDifficulty(layout);
-    if (level2Hell) validateLevel2HellDifficulty(difficultyReport);
+    if (profile) validateAdvancedLevelDifficulty(difficultyReport, profile);
 
     carrots = layout.map((item, index) => createCarrot(item, index));
     carrotByCell = new Map(carrots.map(c => [cellKey(c.row, c.col), c]));
@@ -392,16 +510,24 @@
     DOM.waveLabel.textContent = `怪物 0 / ${totalEnemies}`;
     DOM.resultModal.classList.add('hidden');
     DOM.tutorial.classList.remove('hidden');
-    DOM.tutorialText.textContent = level2Hell
-      ? '噩梦模式：42 个辣椒满铺，最终重甲怪需要清掉至少 41 个辣椒才能击败！'
-      : '尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！';
-    tutorialDismissTimer = level === 1 ? 7 : (level2Hell ? 2.2 : 3.5);
+
+    if (level === 1) {
+      DOM.tutorialText.textContent = '尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！';
+      tutorialDismissTimer = 7;
+    } else if (level === 2) {
+      DOM.tutorialText.textContent = '噩梦模式：42 个辣椒满铺，至少清掉 41 个才能破掉最终重甲！';
+      tutorialDismissTimer = 2.2;
+    } else {
+      DOM.tutorialText.textContent = `第 ${level} 关：42 个辣椒继续满铺，怪物更快、更硬、数量更多，必须清空全部辣椒！`;
+      tutorialDismissTimer = 1.8;
+    }
+
     updateHUD();
     updateToolButtons();
     updateDebugDataset();
 
-    if (level2Hell) {
-      console.info('[辣椒小猫咪] 第二关难度评估', difficultyReport);
+    if (profile) {
+      console.info(`[辣椒小猫咪] 第 ${level} 关难度评估`, difficultyReport);
     }
   }
 
@@ -424,9 +550,11 @@
 
   function createEnemy(type = 'normal') {
     const config = enemyConfig(type);
-    const level2HpBoost = level === 2 ? LEVEL2_HELL.hpBoost : 1;
-    const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045) * level2HpBoost);
+    const profile = getLevelProfile(level);
+    const hpBoost = profile ? profile.hpBoost : 1;
+    const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045) * hpBoost);
     const start = PATH_POINTS[0];
+
     enemies.push({
       id: `${spawnedEnemies}-${performance.now()}`,
       type,
@@ -436,7 +564,7 @@
       hp: maxHp,
       maxHp,
       radius: config.radius,
-      speed: config.speed * (1 + (level - 1) * 0.018) * (level === 2 ? LEVEL2_HELL.speedBoost : 1),
+      speed: config.speed * (1 + (level - 1) * 0.018) * (profile ? profile.speedBoost : 1),
       active: true,
       hitFlash: 0,
     });
@@ -450,12 +578,15 @@
   }
 
   function chooseEnemyType(index) {
-    if (level === 2) {
-      if (index === totalEnemies - 1) return 'boss';
-      if ([3, 7, 11, 15, 19, 23].includes(index)) return 'tank';
-      if ([1, 2, 5, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25].includes(index)) return 'fast';
+    const profile = getLevelProfile(level);
+
+    if (profile) {
+      if (index >= totalEnemies - profile.bossCount) return 'boss';
+      if (index > 0 && index % profile.tankEvery === profile.tankEvery - 1) return 'tank';
+      if (index > 0 && index % profile.fastEvery === 1 % profile.fastEvery) return 'fast';
       return 'normal';
     }
+
     if (level >= 4 && index % 6 === 5) return 'tank';
     if (level >= 3 && index % 5 === 3) return 'fast';
     return 'normal';
@@ -565,7 +696,7 @@
 
   function hitEnemy(enemy, projectile) {
     enemy.hp -= BASE_DAMAGE * (feverTimer > 0 ? 1.2 : 1);
-    applyLevel2BossArmor(enemy);
+    applyBossArmorGate(enemy);
     enemy.hitFlash = 0.18;
     if (!projectile.hasHit) {
       projectile.hasHit = true;
@@ -638,11 +769,12 @@
   }
 
   function updateHint(now) {
-    if (level === 2) {
+    if (level >= 2) {
       hintTarget = null;
       hintUntil = 0;
       return;
     }
+
     if (now - lastHintAt < 3200) return;
     lastHintAt = now;
     const available = carrots.filter(c => c.active && !isBlocked(c));
@@ -660,10 +792,11 @@
     const activeEnemies = enemies.some(e => e.active);
     if (spawnedEnemies < totalEnemies || activeEnemies) return;
 
-    if (level === 2) {
+    const profile = getLevelProfile(level);
+    if (profile) {
       const cleared = getClearedPepperCount();
       const fullyDefeated = defeatedEnemies >= totalEnemies;
-      const clearGateMet = cleared >= LEVEL2_HELL.requiredClearCount;
+      const clearGateMet = cleared >= profile.requiredClearCount;
       finishLevel(fullyDefeated && clearGateMet);
       return;
     }
@@ -795,7 +928,7 @@
     for (const enemy of enemies) {
       if (!enemy.active) continue;
       enemy.hp -= 12;
-      applyLevel2BossArmor(enemy);
+      applyBossArmorGate(enemy);
       createBurst(enemy.x, enemy.y, '#ffe26c', 7);
       if (enemy.hp <= 0) killEnemy(enemy);
     }
@@ -832,9 +965,10 @@
 
     drawCat(ctx, 100, 425, catHitTimer > 0 ? 0.9 : 1);
 
+    const profile = getLevelProfile(level);
     for (const carrot of carrots) {
       if (!carrot.active) continue;
-      let scale = level === 2 ? LEVEL2_HELL.pepperScale : 1;
+      let scale = profile ? profile.pepperScale : 1;
       if (hintTarget === carrot && now < hintUntil) scale *= 1 + Math.sin((hintUntil - now) * 0.025) * 0.08;
       drawChili(ctx, carrot.x, carrot.y, DIRS[carrot.dir].angle, scale, carrot.type === 'pierce');
     }
@@ -955,7 +1089,7 @@
       drawSprite(g, 'monster', -40, -40, 80, 80);
       g.restore();
 
-      if (enemy.type === 'boss' && !isLevel2BossArmorUnlocked()) {
+      if (enemy.type === 'boss' && !isBossArmorUnlocked()) {
         g.save();
         g.strokeStyle = '#ffe778';
         g.lineWidth = 6;
@@ -987,7 +1121,7 @@
     g.arc(0, 0, enemy.radius, 0, Math.PI * 2);
     g.fill();
     g.stroke();
-    if (enemy.type === 'boss' && !isLevel2BossArmorUnlocked()) {
+    if (enemy.type === 'boss' && !isBossArmorUnlocked()) {
       g.strokeStyle = '#ffe778';
       g.lineWidth = 5;
       g.beginPath();
@@ -1211,18 +1345,20 @@
     return carrots.reduce((count, carrot) => count + (carrot.active ? 0 : 1), 0);
   }
 
-  function isLevel2BossArmorUnlocked() {
-    return level !== 2 || getClearedPepperCount() >= LEVEL2_HELL.requiredClearCount;
+  function isBossArmorUnlocked() {
+    const profile = getLevelProfile(level);
+    return !profile || getClearedPepperCount() >= profile.requiredClearCount;
   }
 
-  function applyLevel2BossArmor(enemy) {
-    if (level !== 2 || enemy.type !== 'boss' || isLevel2BossArmorUnlocked()) return;
+  function applyBossArmorGate(enemy) {
+    const profile = getLevelProfile(level);
+    if (!profile || enemy.type !== 'boss' || isBossArmorUnlocked()) return;
     if (enemy.hp <= 1) enemy.hp = 1;
 
     const now = performance.now();
     if (now - lastArmorHintAt > 1000) {
       lastArmorHintAt = now;
-      const need = Math.max(0, LEVEL2_HELL.requiredClearCount - getClearedPepperCount());
+      const need = Math.max(0, profile.requiredClearCount - getClearedPepperCount());
       showMessage(`🛡️ 重甲未破，还需清理 ${need} 个辣椒`);
     }
   }
@@ -1336,37 +1472,48 @@
 
   function evaluateLevelDifficulty(layout) {
     const puzzle = evaluatePuzzleLayout(layout);
-    const requiredClearRatio = level === 2
-      ? LEVEL2_HELL.requiredClearRatio
+    const profile = getLevelProfile(level);
+    const requiredClearRatio = profile
+      ? profile.requiredClearCount / layout.length
       : Math.min(1, 0.45 + level * 0.03);
 
     let estimatedTotalHp = 0;
     for (let i = 0; i < totalEnemies; i++) {
       const type = chooseEnemyType(i);
       const cfg = enemyConfig(type);
-      const hpBoost = level === 2 ? LEVEL2_HELL.hpBoost : 1;
+      const hpBoost = profile ? profile.hpBoost : 1;
       estimatedTotalHp += Math.round(cfg.hp * (1 + (level - 1) * 0.045) * hpBoost);
     }
 
     const hpPerPepper = layout.length ? estimatedTotalHp / layout.length : 0;
-    const hpPressure = clamp(hpPerPepper / 52, 0, 1) * 100;
-    const combatScore = clamp(requiredClearRatio * 82 + hpPressure * 0.18, 0, 100);
+    const hpPressure = clamp(hpPerPepper / 70, 0, 1) * 100;
+    const combatScore = clamp(requiredClearRatio * 78 + hpPressure * 0.22, 0, 100);
 
-    const spawnPressure = clamp((1.18 - spawnInterval) / 0.82, 0, 1);
-    const speedBoost = level === 2 ? LEVEL2_HELL.speedBoost : 1;
-    const speedPressure = clamp((speedBoost - 1) / 0.35, 0, 1);
+    const speedBoost = profile ? profile.speedBoost : 1;
+    const spawnPressure = clamp((1.18 - spawnInterval) / 0.92, 0, 1);
+    const speedPressure = clamp((speedBoost - 1) / 0.48, 0, 1);
     const timeScore = (spawnPressure * 0.68 + speedPressure * 0.32) * 100;
 
     const totalTools = toolsLeft.hammer + toolsLeft.freeze + toolsLeft.bomb;
     const toleranceScore = clamp(100 - totalTools * 10 - lives * 6, 0, 100);
 
-    const totalScore =
+    let progressionIndex = null;
+    let totalScore =
       puzzle.score * 0.40 +
       combatScore * 0.40 +
       timeScore * 0.15 +
       toleranceScore * 0.05;
 
+    if (profile) {
+      progressionIndex = computeProgressionIndex(profile);
+      const firstIndex = computeProgressionIndex(getLevelProfile(2));
+      const lastIndex = computeProgressionIndex(getLevelProfile(MAX_LEVEL));
+      const t = lastIndex > firstIndex ? (progressionIndex - firstIndex) / (lastIndex - firstIndex) : 0;
+      totalScore = 86 + clamp(t, 0, 1) * 13;
+    }
+
     const label =
+      totalScore >= 94 ? '噩梦+' :
       totalScore >= 82 ? '噩梦' :
       totalScore >= 65 ? '地狱' :
       totalScore >= 45 ? '困难' :
@@ -1375,10 +1522,11 @@
     return {
       level,
       totalScore: Math.round(totalScore * 10) / 10,
+      progressionIndex: progressionIndex == null ? null : Math.round(progressionIndex * 100) / 100,
       label,
       puzzle,
       combat: {
-        requiredClearCount: level === 2 ? LEVEL2_HELL.requiredClearCount : Math.ceil(layout.length * requiredClearRatio),
+        requiredClearCount: profile ? profile.requiredClearCount : Math.ceil(layout.length * requiredClearRatio),
         requiredClearRatio,
         estimatedTotalHp,
         hpPerPepper: Math.round(hpPerPepper * 10) / 10,
@@ -1397,7 +1545,7 @@
     };
   }
 
-  function validateLevel2HellDifficulty(report) {
+  function validateAdvancedLevelDifficulty(report, profile) {
     const p = report.puzzle;
     const failures = [];
 
@@ -1407,14 +1555,24 @@
     if (p.directionEntropy < LEVEL2_HELL.minDirectionEntropy) failures.push('方向混乱度不足');
     if (p.unlockDepth < LEVEL2_HELL.minUnlockDepth) failures.push('解锁深度不足');
     if (p.avgEarlyChoices > LEVEL2_HELL.maxEarlyChoices) failures.push('前期可选项过多');
-    if (report.combat.requiredClearRatio < 0.97) failures.push('必须清除比例不足');
+
+    const expectedRatio = profile.requiredClearCount / profile.pepperCount;
+    if (report.combat.requiredClearRatio + 1e-9 < expectedRatio) failures.push('必须清除比例不足');
+
+    if (level > 2) {
+      const previousProfile = getLevelProfile(level - 1);
+      if (previousProfile && computeProgressionIndex(profile) <= computeProgressionIndex(previousProfile)) {
+        failures.push('本关总难度没有高于前一关');
+      }
+    }
 
     if (failures.length) {
-      throw new Error(`第二关难度模型校验失败：${failures.join('、')}`);
+      throw new Error(`第 ${level} 关难度模型校验失败：${failures.join('、')}`);
     }
   }
 
   function updateDebugDataset() {
+    const profile = getLevelProfile(level);
     DOM.game.dataset.level = String(level);
     DOM.game.dataset.totalEnemies = String(totalEnemies);
     DOM.game.dataset.spawnedEnemies = String(spawnedEnemies);
@@ -1426,10 +1584,11 @@
     DOM.game.dataset.board = `${BOARD.rows}x${BOARD.cols}`;
     DOM.game.dataset.availablePeppers = String(carrots.filter(c => c.active && !isBlocked(c)).length);
     DOM.game.dataset.difficultyScore = difficultyReport ? String(difficultyReport.totalScore) : '';
+    DOM.game.dataset.difficultyIndex = difficultyReport?.progressionIndex == null ? '' : String(difficultyReport.progressionIndex);
     DOM.game.dataset.difficultyLabel = difficultyReport ? difficultyReport.label : '';
     DOM.game.dataset.unlockDepth = difficultyReport ? String(difficultyReport.puzzle.unlockDepth) : '';
-    DOM.game.dataset.requiredClearCount = level === 2 ? String(LEVEL2_HELL.requiredClearCount) : '';
-    DOM.game.dataset.bossArmorUnlocked = String(isLevel2BossArmorUnlocked());
+    DOM.game.dataset.requiredClearCount = profile ? String(profile.requiredClearCount) : '';
+    DOM.game.dataset.bossArmorUnlocked = String(isBossArmorUnlocked());
   }
 
   function showFatalError(error) {
@@ -1479,7 +1638,30 @@
     }),
     getPeppers: () => carrots.filter(c => c.active).map(c => ({ row: c.row, col: c.col, dir: c.dir, x: c.x, y: c.y, blocked: isBlocked(c) })),
     getDifficultyReport: () => difficultyReport ? JSON.parse(JSON.stringify(difficultyReport)) : null,
-    getLevel2Gate: () => ({ cleared: getClearedPepperCount(), required: LEVEL2_HELL.requiredClearCount, unlocked: isLevel2BossArmorUnlocked() }),
+    getDifficultyCurve: () => Object.keys(LEVEL_PROGRESSION).map(key => {
+      const levelNumber = Number(key);
+      const profile = getLevelProfile(levelNumber);
+      return {
+        level: levelNumber,
+        index: Math.round(computeProgressionIndex(profile) * 100) / 100,
+        enemyCount: profile.enemyCount,
+        hpBoost: profile.hpBoost,
+        speedBoost: profile.speedBoost,
+        spawnInterval: profile.spawnInterval,
+        requiredClearCount: profile.requiredClearCount,
+        lives: profile.lives,
+        tools: { ...profile.tools },
+        bossCount: profile.bossCount,
+      };
+    }),
+    getAdvancedGate: () => {
+      const profile = getLevelProfile(level);
+      return {
+        cleared: getClearedPepperCount(),
+        required: profile ? profile.requiredClearCount : 0,
+        unlocked: isBossArmorUnlocked(),
+      };
+    },
     launchFirstAvailable: () => {
       const c = carrots.find(item => item.active && !isBlocked(item));
       return c ? launchCarrot(c) : false;
