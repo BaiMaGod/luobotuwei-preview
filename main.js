@@ -29,8 +29,8 @@
 
   const W = 900;
   const H = 1600;
-  const ASSET_URL = './assets/chili-cat-sprite.webp?v=curve-20260924-1';
-  const BACKGROUND_URL = './assets/garden-background.svg?v=curve-20260924-1';
+  const ASSET_URL = './assets/chili-cat-sprite.webp?v=wave-boss-20260926-1';
+  const BACKGROUND_URL = './assets/garden-background.svg?v=wave-boss-20260926-1';
   const SPRITES = {
     title: [0, 0, 650, 488],
     tutorial: [670, 0, 840, 280],
@@ -137,6 +137,86 @@
     return LEVEL_PROGRESSION[levelNumber] || null;
   }
 
+  function getWaveClearThresholds() {
+    // 后半盘仍然持续有怪：最后一波在清掉 34/42 辣椒时才解锁，
+    // 给最后 8 个辣椒保留稳定的命中窗口。
+    return [0, 8, 17, 26, 34];
+  }
+
+  function getBossClearThresholds(bossCount) {
+    if (bossCount <= 0) return [];
+    if (bossCount === 1) return [8];
+    if (bossCount === 2) return [8, 24];
+    if (bossCount === 3) return [7, 20, 31];
+    return [6, 17, 28, 35].slice(0, bossCount);
+  }
+
+  function getBossSpeedRatio(levelNumber = level) {
+    // Boss 不分阶段、不停留，只是一直慢速前进。
+    // 第 2～10 关约为普通怪基础速度的 40%～45%。
+    return clamp(0.40 + Math.max(0, levelNumber - 2) * 0.006, 0.40, 0.45);
+  }
+
+  function chooseRegularEnemyType(index, profile) {
+    if (!profile) return 'normal';
+    if (index > 0 && index % profile.tankEvery === profile.tankEvery - 1) return 'tank';
+    if (index > 0 && index % profile.fastEvery === 1 % profile.fastEvery) return 'fast';
+    return 'normal';
+  }
+
+  function buildEnemySpawnPlan(profile) {
+    if (!profile) {
+      return Array.from({ length: totalEnemies }, (_, index) => ({
+        type: chooseEnemyType(index),
+        unlockAt: 0,
+        wave: 1,
+        priority: 1,
+      }));
+    }
+
+    const thresholds = getWaveClearThresholds();
+    const bossThresholds = getBossClearThresholds(profile.bossCount);
+    const regularCount = Math.max(0, profile.enemyCount - profile.bossCount);
+    const basePerWave = Math.floor(regularCount / thresholds.length);
+    const remainder = regularCount % thresholds.length;
+    const plan = [];
+    let regularIndex = 0;
+
+    thresholds.forEach((unlockAt, waveIndex) => {
+      const quota = basePerWave + (waveIndex < remainder ? 1 : 0);
+      for (let i = 0; i < quota; i++) {
+        plan.push({
+          type: chooseRegularEnemyType(regularIndex, profile),
+          unlockAt,
+          wave: waveIndex + 1,
+          priority: 1,
+        });
+        regularIndex++;
+      }
+    });
+
+    bossThresholds.forEach((unlockAt, bossIndex) => {
+      plan.push({
+        type: 'boss',
+        unlockAt,
+        wave: Math.min(thresholds.length, thresholds.findIndex(t => t >= unlockAt) + 1 || thresholds.length),
+        priority: 0,
+        bossIndex,
+      });
+    });
+
+    plan.sort((a, b) =>
+      a.unlockAt - b.unlockAt ||
+      a.priority - b.priority ||
+      (a.bossIndex ?? 999) - (b.bossIndex ?? 999)
+    );
+
+    if (plan.length !== profile.enemyCount) {
+      throw new Error(`第 ${level} 关刷怪计划数量异常：${plan.length}/${profile.enemyCount}`);
+    }
+    return plan;
+  }
+
   function getToolCount(toolSet) {
     return (toolSet.hammer || 0) + (toolSet.freeze || 0) + (toolSet.bomb || 0);
   }
@@ -226,7 +306,9 @@
   let catHitTimer = 0;
   let level2LayoutSerial = 0;
   let difficultyReport = null;
-  let lastArmorHintAt = 0;
+  let enemySpawnPlan = [];
+  let spawnPlanIndex = 0;
+  let currentWave = 0;
   let carrots = [];
   let carrotByCell = new Map();
   let projectiles = [];
@@ -489,17 +571,20 @@
     effects = [];
     projectiles = [];
     enemies = [];
+    enemySpawnPlan = [];
+    spawnPlanIndex = 0;
+    currentWave = 0;
     hintTarget = null;
     hintUntil = 0;
     catHitTimer = 0;
     lastHintAt = performance.now();
-    lastArmorHintAt = 0;
 
     const count = Math.min(14 + level * 2, BOARD.rows * BOARD.cols - 3);
     const layout = advanced
       ? generateLevel2HardLayout()
       : generateSolvableLayout(BOARD.rows, BOARD.cols, count, 5000 + level * 7919);
 
+    enemySpawnPlan = buildEnemySpawnPlan(profile);
     difficultyReport = evaluateLevelDifficulty(layout);
     if (profile) validateAdvancedLevelDifficulty(difficultyReport, profile);
 
@@ -515,11 +600,11 @@
       DOM.tutorialText.textContent = '尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！';
       tutorialDismissTimer = 7;
     } else if (level === 2) {
-      DOM.tutorialText.textContent = '噩梦模式：42 个辣椒满铺，至少清掉 41 个才能破掉最终重甲！';
-      tutorialDismissTimer = 2.2;
+      DOM.tutorialText.textContent = '42 个辣椒满铺。怪物会随解谜进度分波出现，Boss 会提前登场并缓慢前进。';
+      tutorialDismissTimer = 2.4;
     } else {
-      DOM.tutorialText.textContent = `第 ${level} 关：42 个辣椒继续满铺，怪物更快、更硬、数量更多，必须清空全部辣椒！`;
-      tutorialDismissTimer = 1.8;
+      DOM.tutorialText.textContent = `第 ${level} 关：怪物分波进场，Boss 提前出现且移动更慢，后半盘辣椒也有目标可打！`;
+      tutorialDismissTimer = 2.0;
     }
 
     updateHUD();
@@ -528,6 +613,7 @@
 
     if (profile) {
       console.info(`[辣椒小猫咪] 第 ${level} 关难度评估`, difficultyReport);
+      console.info(`[辣椒小猫咪] 第 ${level} 关刷怪计划`, enemySpawnPlan);
     }
   }
 
@@ -555,6 +641,10 @@
     const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045) * hpBoost);
     const start = PATH_POINTS[0];
 
+    const speed = type === 'boss' && profile
+      ? enemyConfig('normal').speed * getBossSpeedRatio(level)
+      : config.speed * (1 + (level - 1) * 0.018) * (profile ? profile.speedBoost : 1);
+
     enemies.push({
       id: `${spawnedEnemies}-${performance.now()}`,
       type,
@@ -564,7 +654,7 @@
       hp: maxHp,
       maxHp,
       radius: config.radius,
-      speed: config.speed * (1 + (level - 1) * 0.018) * (profile ? profile.speedBoost : 1),
+      speed,
       active: true,
       hitFlash: 0,
     });
@@ -573,19 +663,13 @@
   function enemyConfig(type) {
     if (type === 'fast') return { hp: 24, speed: 116, radius: 27, color: '#a768e8' };
     if (type === 'tank') return { hp: 55, speed: 58, radius: 34, color: '#68a8d7' };
-    if (type === 'boss') return { hp: 100, speed: 42, radius: 42, color: '#d9a13a' };
+    if (type === 'boss') return { hp: 90, speed: 78, radius: 42, color: '#d9a13a' };
     return { hp: 32, speed: 78, radius: 30, color: '#e9685a' };
   }
 
   function chooseEnemyType(index) {
     const profile = getLevelProfile(level);
-
-    if (profile) {
-      if (index >= totalEnemies - profile.bossCount) return 'boss';
-      if (index > 0 && index % profile.tankEvery === profile.tankEvery - 1) return 'tank';
-      if (index > 0 && index % profile.fastEvery === 1 % profile.fastEvery) return 'fast';
-      return 'normal';
-    }
+    if (profile) return chooseRegularEnemyType(index, profile);
 
     if (level >= 4 && index % 6 === 5) return 'tank';
     if (level >= 3 && index % 5 === 3) return 'fast';
@@ -625,13 +709,26 @@
   }
 
   function updateSpawner(dt) {
-    if (spawnedEnemies >= totalEnemies) return;
+    if (spawnPlanIndex >= enemySpawnPlan.length || spawnedEnemies >= totalEnemies) return;
+
+    const next = enemySpawnPlan[spawnPlanIndex];
+    const cleared = getClearedPepperCount();
+    if (cleared < next.unlockAt) return;
+
     spawnTimer -= dt;
-    if (spawnTimer <= 0) {
-      createEnemy(chooseEnemyType(spawnedEnemies));
-      spawnedEnemies++;
-      spawnTimer = spawnInterval;
+    if (spawnTimer > 0) return;
+
+    if (next.wave > currentWave) {
+      currentWave = next.wave;
+      if (currentWave > 1) showMessage(`🌶️ 第 ${currentWave} 波来袭！`);
     }
+
+    createEnemy(next.type);
+    if (next.type === 'boss') showMessage('👹 Boss 提前登场！');
+
+    spawnedEnemies++;
+    spawnPlanIndex++;
+    spawnTimer = spawnInterval;
   }
 
   function updateEnemies(dt) {
@@ -696,7 +793,6 @@
 
   function hitEnemy(enemy, projectile) {
     enemy.hp -= BASE_DAMAGE * (feverTimer > 0 ? 1.2 : 1);
-    applyBossArmorGate(enemy);
     enemy.hitFlash = 0.18;
     if (!projectile.hasHit) {
       projectile.hasHit = true;
@@ -794,10 +890,15 @@
 
     const profile = getLevelProfile(level);
     if (profile) {
-      const cleared = getClearedPepperCount();
       const fullyDefeated = defeatedEnemies >= totalEnemies;
-      const clearGateMet = cleared >= profile.requiredClearCount;
-      finishLevel(fullyDefeated && clearGateMet);
+      if (!fullyDefeated) {
+        finishLevel(false);
+        return;
+      }
+
+      if (getClearedPepperCount() >= profile.requiredClearCount) {
+        finishLevel(true);
+      }
       return;
     }
 
@@ -928,7 +1029,6 @@
     for (const enemy of enemies) {
       if (!enemy.active) continue;
       enemy.hp -= 12;
-      applyBossArmorGate(enemy);
       createBurst(enemy.x, enemy.y, '#ffe26c', 7);
       if (enemy.hp <= 0) killEnemy(enemy);
     }
@@ -1088,19 +1188,6 @@
       if (flash) g.filter = (g.filter && g.filter !== 'none' ? g.filter + ' ' : '') + 'brightness(1.55)';
       drawSprite(g, 'monster', -40, -40, 80, 80);
       g.restore();
-
-      if (enemy.type === 'boss' && !isBossArmorUnlocked()) {
-        g.save();
-        g.strokeStyle = '#ffe778';
-        g.lineWidth = 6;
-        g.globalAlpha = 0.88;
-        g.beginPath();
-        g.arc(enemy.x, enemy.y, 55, 0, Math.PI * 2);
-        g.stroke();
-        g.globalAlpha = 1;
-        g.restore();
-      }
-
       drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 67 : 53), enemy.hp);
       return;
     }
@@ -1121,13 +1208,6 @@
     g.arc(0, 0, enemy.radius, 0, Math.PI * 2);
     g.fill();
     g.stroke();
-    if (enemy.type === 'boss' && !isBossArmorUnlocked()) {
-      g.strokeStyle = '#ffe778';
-      g.lineWidth = 5;
-      g.beginPath();
-      g.arc(0, 0, enemy.radius + 12, 0, Math.PI * 2);
-      g.stroke();
-    }
     g.restore();
     drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 67 : 53), enemy.hp);
   }
@@ -1345,23 +1425,9 @@
     return carrots.reduce((count, carrot) => count + (carrot.active ? 0 : 1), 0);
   }
 
-  function isBossArmorUnlocked() {
-    const profile = getLevelProfile(level);
-    return !profile || getClearedPepperCount() >= profile.requiredClearCount;
-  }
+  
 
-  function applyBossArmorGate(enemy) {
-    const profile = getLevelProfile(level);
-    if (!profile || enemy.type !== 'boss' || isBossArmorUnlocked()) return;
-    if (enemy.hp <= 1) enemy.hp = 1;
-
-    const now = performance.now();
-    if (now - lastArmorHintAt > 1000) {
-      lastArmorHintAt = now;
-      const need = Math.max(0, profile.requiredClearCount - getClearedPepperCount());
-      showMessage(`🛡️ 重甲未破，还需清理 ${need} 个辣椒`);
-    }
-  }
+  
 
   function availableLayoutItems(layout, activeKeys) {
     const result = [];
@@ -1478,8 +1544,11 @@
       : Math.min(1, 0.45 + level * 0.03);
 
     let estimatedTotalHp = 0;
-    for (let i = 0; i < totalEnemies; i++) {
-      const type = chooseEnemyType(i);
+    const plannedTypes = enemySpawnPlan.length
+      ? enemySpawnPlan.map(item => item.type)
+      : Array.from({ length: totalEnemies }, (_, index) => chooseEnemyType(index));
+
+    for (const type of plannedTypes) {
       const cfg = enemyConfig(type);
       const hpBoost = profile ? profile.hpBoost : 1;
       estimatedTotalHp += Math.round(cfg.hp * (1 + (level - 1) * 0.045) * hpBoost);
@@ -1532,6 +1601,11 @@
         hpPerPepper: Math.round(hpPerPepper * 10) / 10,
         score: Math.round(combatScore * 10) / 10,
       },
+      pacing: profile ? {
+        waveClearThresholds: getWaveClearThresholds(),
+        bossClearThresholds: getBossClearThresholds(profile.bossCount),
+        bossSpeedRatio: Math.round(getBossSpeedRatio(level) * 1000) / 1000,
+      } : null,
       time: {
         spawnInterval,
         speedBoost,
@@ -1573,6 +1647,7 @@
 
   function updateDebugDataset() {
     const profile = getLevelProfile(level);
+    const next = enemySpawnPlan[spawnPlanIndex] || null;
     DOM.game.dataset.level = String(level);
     DOM.game.dataset.totalEnemies = String(totalEnemies);
     DOM.game.dataset.spawnedEnemies = String(spawnedEnemies);
@@ -1588,7 +1663,9 @@
     DOM.game.dataset.difficultyLabel = difficultyReport ? difficultyReport.label : '';
     DOM.game.dataset.unlockDepth = difficultyReport ? String(difficultyReport.puzzle.unlockDepth) : '';
     DOM.game.dataset.requiredClearCount = profile ? String(profile.requiredClearCount) : '';
-    DOM.game.dataset.bossArmorUnlocked = String(isBossArmorUnlocked());
+    DOM.game.dataset.currentWave = String(currentWave);
+    DOM.game.dataset.nextWaveUnlockAt = next ? String(next.unlockAt) : '';
+    DOM.game.dataset.nextEnemyType = next ? next.type : '';
   }
 
   function showFatalError(error) {
@@ -1635,9 +1712,12 @@
       activePeppers: carrots.filter(c => c.active).length,
       activeEnemies: enemies.filter(e => e.active).length,
       projectiles: projectiles.length,
+      currentWave,
+      spawnPlanIndex,
     }),
     getPeppers: () => carrots.filter(c => c.active).map(c => ({ row: c.row, col: c.col, dir: c.dir, x: c.x, y: c.y, blocked: isBlocked(c) })),
     getDifficultyReport: () => difficultyReport ? JSON.parse(JSON.stringify(difficultyReport)) : null,
+    getSpawnPlan: () => enemySpawnPlan.map((item, index) => ({ index, ...item, spawned: index < spawnPlanIndex })),
     getDifficultyCurve: () => Object.keys(LEVEL_PROGRESSION).map(key => {
       const levelNumber = Number(key);
       const profile = getLevelProfile(levelNumber);
@@ -1647,6 +1727,7 @@
         enemyCount: profile.enemyCount,
         hpBoost: profile.hpBoost,
         speedBoost: profile.speedBoost,
+        bossSpeedRatio: Math.round(getBossSpeedRatio(levelNumber) * 1000) / 1000,
         spawnInterval: profile.spawnInterval,
         requiredClearCount: profile.requiredClearCount,
         lives: profile.lives,
@@ -1654,12 +1735,14 @@
         bossCount: profile.bossCount,
       };
     }),
-    getAdvancedGate: () => {
-      const profile = getLevelProfile(level);
+    getWaveState: () => {
+      const next = enemySpawnPlan[spawnPlanIndex] || null;
       return {
         cleared: getClearedPepperCount(),
-        required: profile ? profile.requiredClearCount : 0,
-        unlocked: isBossArmorUnlocked(),
+        currentWave,
+        nextUnlockAt: next ? next.unlockAt : null,
+        nextEnemyType: next ? next.type : null,
+        remainingPlan: Math.max(0, enemySpawnPlan.length - spawnPlanIndex),
       };
     },
     launchFirstAvailable: () => {
