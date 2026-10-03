@@ -32,10 +32,10 @@
   const ASSET_URL = './assets/chili-cat-sprite.webp';
   const BACKGROUND_URL = './assets/garden-background.svg';
   const ENEMY_ASSET_URLS = Object.freeze({
-    normal: './assets/monster-normal.svg',
-    fast: './assets/monster-fast.svg',
-    tank: './assets/monster-tank.svg',
-    boss: './assets/monster-boss.svg',
+    normal: './assets/monster-normal.webp',
+    fast: './assets/monster-fast.webp',
+    tank: './assets/monster-tank.webp',
+    boss: './assets/monster-boss.webp',
   });
   const SPRITES = {
     title: [0, 0, 650, 488],
@@ -1579,14 +1579,14 @@
     g.globalAlpha = 0.22;
     g.fillStyle = '#4e2c24';
     g.beginPath();
-    const shadowW = enemy.type === 'boss' ? 54 : enemy.type === 'tank' ? 42 : enemy.type === 'fast' ? 30 : 34;
-    const shadowH = enemy.type === 'boss' ? 13 : enemy.type === 'tank' ? 11 : 9;
+    const shadowW = enemy.type === 'boss' ? 68 : enemy.type === 'tank' ? 54 : enemy.type === 'fast' ? 34 : 42;
+    const shadowH = enemy.type === 'boss' ? 17 : enemy.type === 'tank' ? 14 : enemy.type === 'fast' ? 9 : 11;
     g.ellipse(enemy.x, enemy.y + enemy.radius * 0.78, shadowW, shadowH, 0, 0, Math.PI * 2);
     g.fill();
     g.restore();
 
     if (art) {
-      const size = enemy.type === 'boss' ? 122 : enemy.type === 'tank' ? 94 : enemy.type === 'fast' ? 80 : 86;
+      const size = enemy.type === 'boss' ? 154 : enemy.type === 'tank' ? 120 : enemy.type === 'fast' ? 98 : 106;
       const lean = enemy.type === 'fast' ? Math.sin(now * 8 + enemy.distance * 0.035) * 0.045 : 0;
       g.save();
       g.translate(enemy.x, enemy.y + bob);
@@ -1595,7 +1595,7 @@
       if (flash) g.filter = 'brightness(1.55) saturate(1.08)';
       g.drawImage(art, -size / 2, -size / 2, size, size);
       g.restore();
-      drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 76 : enemy.type === 'tank' ? 61 : 56), enemy.hp);
+      drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 96 : enemy.type === 'tank' ? 74 : enemy.type === 'fast' ? 64 : 68), enemy.hp);
       return;
     }
 
