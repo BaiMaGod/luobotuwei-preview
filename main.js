@@ -568,7 +568,7 @@
     totalEnemies = profile ? profile.enemyCount : 6 + Math.ceil(level * 0.7);
     spawnedEnemies = 0;
     defeatedEnemies = 0;
-    spawnInterval = profile ? profile.spawnInterval : Math.max(0.68, 1.18 - level * 0.035);
+    spawnInterval = Math.max(1.5, 2.4 - (level - 1) * 0.1);
     spawnTimer = OPENING_THINK_TIME;
     toolMode = null;
     toolsLeft = profile ? { ...profile.tools } : { hammer: 1, freeze: 1, bomb: 1 };
@@ -720,6 +720,7 @@
     updateEnemies(dt);
     updateCatKick(dt);
     updateProjectiles(dt);
+    enemies = enemies.filter(e => e.active);
     updateEffects(dt);
     updateCombo(dt);
     updateHint(now);
@@ -729,11 +730,13 @@
   }
 
   function updateSpawner(dt) {
-    if (spawnPlanIndex >= enemySpawnPlan.length || spawnedEnemies >= totalEnemies) return;
+    // Time pressure continues even while the player is thinking or the road is empty.
+    // The last pepper closes the entrance so its cleanup can finish.
+    if (gameState !== 'playing' || finisherLaunched) return;
 
-    const next = enemySpawnPlan[spawnPlanIndex];
-    const cleared = getClearedPepperCount();
-    if (cleared < next.unlockAt) return;
+    const next = enemySpawnPlan[spawnPlanIndex] || {
+      type: chooseEnemyType(spawnedEnemies), wave: currentWave, priority: 1,
+    };
 
     spawnTimer -= dt;
     if (spawnTimer > 0) return;
@@ -747,7 +750,7 @@
     if (next.type === 'boss') showMessage('👹 Boss 提前登场！');
 
     spawnedEnemies++;
-    spawnPlanIndex++;
+    if (spawnPlanIndex < enemySpawnPlan.length) spawnPlanIndex++;
     spawnTimer = spawnInterval;
   }
 
@@ -787,9 +790,7 @@
           continue;
         }
       } else if (projectile.finisher) {
-        // Sweep visibly in both directions until the wave plan is resolved.
-        // A last pepper launched near the entrance must also reach enemies
-        // further down the road, and enemies that have not spawned yet.
+        // Sweep both directions to clear every enemy already on the road.
         sweptRanges = advanceFinisher(projectile, FINISHER_PATH_SPEED * dt);
         const p = pointAtDistance(projectile.pathDistance);
         projectile.x = p.x;
@@ -948,12 +949,12 @@
     }
 
     const activeEnemies = enemies.some(e => e.active);
-    if (spawnedEnemies < totalEnemies || activeEnemies) return;
+    if (!finisherLaunched || activeEnemies) return;
     // Even if the road is empty, let the last kick finish before the modal.
     if (catAction || projectiles.some(p => p.active && p.mode === 'waitingKick')) return;
 
     // The puzzle is the objective in every level. Missed enemies cost lives;
-    // a living cat can still win after the board and all waves are resolved.
+    // a living cat wins after the board and the remaining enemies are cleared.
     if (getClearedPepperCount() === carrots.length) finishLevel(true);
   }
 
@@ -1206,7 +1207,7 @@
       heart.classList.toggle('lost', index >= Math.max(0, lives));
     });
     const remaining = carrots.length - getClearedPepperCount();
-    const remainingEnemies = totalEnemies - spawnedEnemies + enemies.filter(e => e.active).length;
+    const remainingEnemies = enemies.filter(e => e.active).length;
     DOM.waveLabel.textContent = finisherLaunched
       ? `终结椒清场 · 剩余怪物 ${remainingEnemies}`
       : `辣椒 ${remaining} / ${carrots.length} · 已击退 ${defeatedEnemies}`;
@@ -2022,7 +2023,8 @@
     const profile = getLevelProfile(level);
     const next = enemySpawnPlan[spawnPlanIndex] || null;
     DOM.game.dataset.level = String(level);
-    DOM.game.dataset.totalEnemies = String(totalEnemies);
+    DOM.game.dataset.totalEnemies = 'unlimited';
+    DOM.game.dataset.spawning = finisherLaunched ? 'closed' : 'continuous';
     DOM.game.dataset.spawnedEnemies = String(spawnedEnemies);
     DOM.game.dataset.activePeppers = String(carrots.filter(c => c.active).length);
     DOM.game.dataset.clearedPeppers = String(getClearedPepperCount());
