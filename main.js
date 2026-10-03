@@ -31,6 +31,12 @@
   const H = 1600;
   const ASSET_URL = './assets/chili-cat-sprite.webp';
   const BACKGROUND_URL = './assets/garden-background.svg';
+  const ENEMY_ASSET_URLS = Object.freeze({
+    normal: './assets/monster-normal.svg',
+    fast: './assets/monster-fast.svg',
+    tank: './assets/monster-tank.svg',
+    boss: './assets/monster-boss.svg',
+  });
   const SPRITES = {
     title: [0, 0, 650, 488],
     tutorial: [670, 0, 840, 280],
@@ -328,6 +334,7 @@
   let audioContext = null;
   let assetSheet = null;
   let backgroundImage = null;
+  let enemyArt = Object.create(null);
 
   boot();
 
@@ -340,9 +347,11 @@
       if (!ctx) throw new Error('Canvas 2D context unavailable');
 
       resizeCanvas();
-      const [assetResult, backgroundResult] = await Promise.allSettled([
+      const enemyEntries = Object.entries(ENEMY_ASSET_URLS);
+      const [assetResult, backgroundResult, ...enemyResults] = await Promise.allSettled([
         loadImage(ASSET_URL),
         loadImage(BACKGROUND_URL),
+        ...enemyEntries.map(([, url]) => loadImage(url)),
       ]);
 
       if (assetResult.status === 'fulfilled') {
@@ -362,6 +371,15 @@
         backgroundImage = null;
         DOM.game.dataset.background = 'fallback';
       }
+
+      enemyArt = Object.create(null);
+      enemyResults.forEach((result, index) => {
+        const [type] = enemyEntries[index];
+        if (result.status === 'fulfilled') enemyArt[type] = result.value;
+        else console.warn(`[辣椒小猫咪] ${type} 怪物素材加载失败，使用旧怪物素材兜底`, result.reason);
+      });
+      const loadedEnemyArt = Object.keys(enemyArt).length;
+      DOM.game.dataset.enemyArt = loadedEnemyArt === enemyEntries.length ? 'ready' : loadedEnemyArt ? 'partial' : 'fallback';
 
       validateDifficultyProgression();
       backgroundCanvas = createBackgroundCanvas();
@@ -1549,13 +1567,43 @@
   }
 
   function drawMonster(g, enemy) {
+    const flash = enemy.hitFlash > 0;
+    const now = performance.now() / 1000;
+    const typePhase = enemy.type === 'fast' ? 2.6 : enemy.type === 'boss' ? 0.8 : enemy.type === 'tank' ? 1.25 : 1.65;
+    const bob = Math.sin(now * typePhase * 3 + enemy.distance * 0.022) * (enemy.type === 'tank' ? 1.2 : enemy.type === 'boss' ? 1.6 : 2.4);
+    const breathe = 1 + Math.sin(now * typePhase * 2.1 + enemy.distance * 0.012) * (enemy.type === 'boss' ? 0.025 : 0.04);
+    const hitPulse = flash ? 1 + Math.sin(enemy.hitFlash * 45) * 0.08 : 1;
+    const art = enemyArt[enemy.type];
+
+    g.save();
+    g.globalAlpha = 0.22;
+    g.fillStyle = '#4e2c24';
+    g.beginPath();
+    const shadowW = enemy.type === 'boss' ? 54 : enemy.type === 'tank' ? 42 : enemy.type === 'fast' ? 30 : 34;
+    const shadowH = enemy.type === 'boss' ? 13 : enemy.type === 'tank' ? 11 : 9;
+    g.ellipse(enemy.x, enemy.y + enemy.radius * 0.78, shadowW, shadowH, 0, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+
+    if (art) {
+      const size = enemy.type === 'boss' ? 122 : enemy.type === 'tank' ? 94 : enemy.type === 'fast' ? 80 : 86;
+      const lean = enemy.type === 'fast' ? Math.sin(now * 8 + enemy.distance * 0.035) * 0.045 : 0;
+      g.save();
+      g.translate(enemy.x, enemy.y + bob);
+      g.rotate(lean);
+      g.scale(hitPulse * breathe, hitPulse / breathe);
+      if (flash) g.filter = 'brightness(1.55) saturate(1.08)';
+      g.drawImage(art, -size / 2, -size / 2, size, size);
+      g.restore();
+      drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 76 : enemy.type === 'tank' ? 61 : 56), enemy.hp);
+      return;
+    }
+
     if (assetSheet) {
-      const flash = enemy.hitFlash > 0;
-      const pulse = flash ? 1 + Math.sin(enemy.hitFlash * 45) * .08 : 1;
       const bossScale = enemy.type === 'boss' ? 1.28 : 1;
       g.save();
-      g.translate(enemy.x, enemy.y);
-      g.scale(pulse * bossScale, bossScale / pulse);
+      g.translate(enemy.x, enemy.y + bob);
+      g.scale(hitPulse * bossScale * breathe, bossScale * hitPulse / breathe);
       if (enemy.type === 'fast') g.filter = 'hue-rotate(245deg) saturate(.95)';
       if (enemy.type === 'tank') g.filter = 'hue-rotate(165deg) saturate(.82) brightness(.95)';
       if (enemy.type === 'boss') g.filter = 'hue-rotate(32deg) saturate(1.25) brightness(1.02)';
@@ -1574,8 +1622,8 @@
           ? { body: '#d9a13a', edge: '#8e5d1c' }
           : { body: '#e9685a', edge: '#9b3c36' };
     g.save();
-    g.translate(enemy.x, enemy.y);
-    g.fillStyle = enemy.hitFlash > 0 ? '#fff5aa' : cfg.body;
+    g.translate(enemy.x, enemy.y + bob);
+    g.fillStyle = flash ? '#fff5aa' : cfg.body;
     g.strokeStyle = cfg.edge;
     g.lineWidth = enemy.type === 'boss' ? 7 : 5;
     g.beginPath();
