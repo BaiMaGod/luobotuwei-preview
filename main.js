@@ -29,8 +29,8 @@
 
   const W = 900;
   const H = 1600;
-  const ASSET_URL = './assets/chili-cat-sprite.webp?v=wave-boss-20260926-1';
-  const BACKGROUND_URL = './assets/garden-background.svg?v=wave-boss-20260926-1';
+  const ASSET_URL = './assets/chili-cat-sprite.webp';
+  const BACKGROUND_URL = './assets/garden-background.svg';
   const SPRITES = {
     title: [0, 0, 650, 488],
     tutorial: [670, 0, 840, 280],
@@ -59,7 +59,7 @@
     2: Object.freeze({
       pepperCount: 42, pepperScale: 0.88,
       enemyCount: 28, spawnInterval: 0.42, hpBoost: 2.05, speedBoost: 1.28,
-      requiredClearCount: 41, lives: 3,
+      requiredClearCount: 42, lives: 3,
       tools: Object.freeze({ hammer: 1, freeze: 1, bomb: 1 }),
       bossCount: 1, tankEvery: 4, fastEvery: 3,
     }),
@@ -274,6 +274,13 @@
   const PATH = buildPathData(PATH_POINTS);
   const PROJECTILE_SPEED = 880;
   const PATH_PROJECTILE_SPEED = 400;
+  // Preserve enemy identities and the level curve, but leave twice as much
+  // time to read the direction puzzle. This applies to bosses as well.
+  const ENEMY_SPEED_SCALE = 0.5;
+  const OPENING_THINK_TIME = 3;
+  const FINISHER_PATH_SPEED = 1000;
+  const CAT_HOME = Object.freeze({ x: 100, y: 365 });
+  const CAT_KICK = Object.freeze({ behind: 76, windup: 0.075, strike: 0.055, recovery: 0.10, returnTime: 0.24 });
   const BASE_DAMAGE = 10;
   const MAX_LEVEL = 10;
 
@@ -303,6 +310,8 @@
   let lastHintAt = 0;
   let hintTarget = null;
   let hintUntil = 0;
+  let finisherReady = false;
+  let finisherLaunched = false;
   let catHitTimer = 0;
   let level2LayoutSerial = 0;
   let difficultyReport = null;
@@ -314,6 +323,8 @@
   let projectiles = [];
   let enemies = [];
   let effects = [];
+  let catAction = null;
+  let catPosition = { ...CAT_HOME };
   let audioContext = null;
   let assetSheet = null;
   let backgroundImage = null;
@@ -558,7 +569,7 @@
     spawnedEnemies = 0;
     defeatedEnemies = 0;
     spawnInterval = profile ? profile.spawnInterval : Math.max(0.68, 1.18 - level * 0.035);
-    spawnTimer = profile ? 0.02 : 0.5;
+    spawnTimer = OPENING_THINK_TIME;
     toolMode = null;
     toolsLeft = profile ? { ...profile.tools } : { hammer: 1, freeze: 1, bomb: 1 };
     freezeTimer = 0;
@@ -569,6 +580,8 @@
     shots = 0;
     successfulShots = 0;
     effects = [];
+    catAction = null;
+    catPosition = { ...CAT_HOME };
     projectiles = [];
     enemies = [];
     enemySpawnPlan = [];
@@ -576,6 +589,8 @@
     currentWave = 0;
     hintTarget = null;
     hintUntil = 0;
+    finisherReady = false;
+    finisherLaunched = false;
     catHitTimer = 0;
     lastHintAt = performance.now();
 
@@ -594,17 +609,19 @@
     DOM.levelLabel.textContent = `第 ${level} 关`;
     DOM.waveLabel.textContent = `怪物 0 / ${totalEnemies}`;
     DOM.resultModal.classList.add('hidden');
+    DOM.floatingMessage.classList.remove('show');
+    DOM.floatingMessage.textContent = '';
     DOM.tutorial.classList.remove('hidden');
 
     if (level === 1) {
-      DOM.tutorialText.textContent = '尖端就是方向。辣椒飞到道路后，会逆着怪物前进方向一路穿刺！';
+      DOM.tutorialText.textContent = '看尖端，解开阻挡。最后一颗会变成金色终结椒，碰到怪物直接秒杀！';
       tutorialDismissTimer = 7;
     } else if (level === 2) {
-      DOM.tutorialText.textContent = '42 个辣椒满铺。怪物会随解谜进度分波出现，Boss 会提前登场并缓慢前进。';
-      tutorialDismissTimer = 2.4;
+      DOM.tutorialText.textContent = '怪物放慢了，先观察解锁顺序。清到最后一颗，金色终结椒负责收尾！';
+      tutorialDismissTimer = 4;
     } else {
-      DOM.tutorialText.textContent = `第 ${level} 关：怪物分波进场，Boss 提前出现且移动更慢，后半盘辣椒也有目标可打！`;
-      tutorialDismissTimer = 2.0;
+      DOM.tutorialText.textContent = `第 ${level} 关：清空辣椒、守住小猫。最后一颗终结椒连 Boss 也能秒杀！`;
+      tutorialDismissTimer = 4;
     }
 
     updateHUD();
@@ -641,9 +658,10 @@
     const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045) * hpBoost);
     const start = PATH_POINTS[0];
 
-    const speed = type === 'boss' && profile
+    const baseSpeed = type === 'boss' && profile
       ? enemyConfig('normal').speed * getBossSpeedRatio(level)
       : config.speed * (1 + (level - 1) * 0.018) * (profile ? profile.speedBoost : 1);
+    const speed = baseSpeed * ENEMY_SPEED_SCALE;
 
     enemies.push({
       id: `${spawnedEnemies}-${performance.now()}`,
@@ -651,6 +669,7 @@
       x: start.x,
       y: start.y,
       distance: 0,
+      previousDistance: 0,
       hp: maxHp,
       maxHp,
       radius: config.radius,
@@ -699,6 +718,7 @@
     updateCarrotBumps(dt);
     updateSpawner(dt);
     updateEnemies(dt);
+    updateCatKick(dt);
     updateProjectiles(dt);
     updateEffects(dt);
     updateCombo(dt);
@@ -735,6 +755,7 @@
     const speedFactor = freezeTimer > 0 ? 0 : 1;
     for (const enemy of enemies) {
       if (!enemy.active) continue;
+      enemy.previousDistance = enemy.distance;
       enemy.distance += enemy.speed * dt * speedFactor;
       const p = pointAtDistance(enemy.distance);
       enemy.x = p.x;
@@ -746,7 +767,8 @@
 
   function updateProjectiles(dt) {
     for (const projectile of projectiles) {
-      if (!projectile.active) continue;
+      if (!projectile.active || projectile.mode === 'waitingKick') continue;
+      let sweptRanges = null;
 
       if (projectile.mode === 'flight') {
         const speed = PROJECTILE_SPEED * (feverTimer > 0 ? 1.3 : 1);
@@ -764,6 +786,14 @@
           projectile.active = false;
           continue;
         }
+      } else if (projectile.finisher) {
+        // Sweep visibly in both directions until the wave plan is resolved.
+        // A last pepper launched near the entrance must also reach enemies
+        // further down the road, and enemies that have not spawned yet.
+        sweptRanges = advanceFinisher(projectile, FINISHER_PATH_SPEED * dt);
+        const p = pointAtDistance(projectile.pathDistance);
+        projectile.x = p.x;
+        projectile.y = p.y;
       } else {
         projectile.pathDistance -= PATH_PROJECTILE_SPEED * (feverTimer > 0 ? 1.25 : 1) * dt;
         if (projectile.pathDistance <= 0) {
@@ -781,7 +811,13 @@
         const dx = projectile.x - enemy.x;
         const dy = projectile.y - enemy.y;
         const hitRadius = enemy.radius + 28;
-        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+        const crossed = sweptRanges && sweptRanges.some(([from, to]) => {
+          const enemyFrom = Math.min(enemy.previousDistance ?? enemy.distance, enemy.distance);
+          const enemyTo = Math.max(enemy.previousDistance ?? enemy.distance, enemy.distance);
+          return enemyTo >= Math.min(from, to) - hitRadius &&
+            enemyFrom <= Math.max(from, to) + hitRadius;
+        });
+        if (crossed || dx * dx + dy * dy <= hitRadius * hitRadius) {
           projectile.alreadyHit.add(enemy.id);
           hitEnemy(enemy, projectile);
         }
@@ -791,9 +827,25 @@
     projectiles = projectiles.filter(p => p.active);
   }
 
+  function advanceFinisher(projectile, travel) {
+    const ranges = [];
+    let remaining = travel;
+    while (remaining > 0) {
+      const from = projectile.pathDistance;
+      const end = projectile.pathDirection > 0 ? PATH.totalLength : 0;
+      const step = Math.min(remaining, Math.abs(end - from));
+      projectile.pathDistance += step * projectile.pathDirection;
+      ranges.push([from, projectile.pathDistance]);
+      remaining -= step;
+      if (projectile.pathDistance === end) projectile.pathDirection *= -1;
+    }
+    return ranges;
+  }
+
   function hitEnemy(enemy, projectile) {
-    enemy.hp -= BASE_DAMAGE * (feverTimer > 0 ? 1.2 : 1);
+    enemy.hp = projectile.finisher ? 0 : enemy.hp - BASE_DAMAGE * (feverTimer > 0 ? 1.2 : 1);
     enemy.hitFlash = 0.18;
+    createHitFire(enemy, projectile.finisher);
     if (!projectile.hasHit) {
       projectile.hasHit = true;
       successfulShots++;
@@ -811,14 +863,14 @@
       showMessage(combo >= 8 ? 'PERFECT!' : combo >= 5 ? 'GREAT!' : 'GOOD!');
     }
 
-    if (enemy.hp <= 0) killEnemy(enemy);
+    if (enemy.hp <= 0) killEnemy(enemy, projectile.finisher);
   }
 
-  function killEnemy(enemy) {
+  function killEnemy(enemy, finishingHit = false) {
     if (!enemy.active) return;
     enemy.active = false;
     defeatedEnemies++;
-    createBurst(enemy.x, enemy.y, enemy.type === 'tank' ? '#9fd4ff' : '#ff8b75', 14);
+    createBurst(enemy.x, enemy.y, finishingHit ? '#ffe47a' : enemy.type === 'tank' ? '#9fd4ff' : '#ff8b75', finishingHit ? 24 : 14);
     playTone(180, 0.09, 'sawtooth', 0.04);
   }
 
@@ -851,6 +903,16 @@
   function updateEffects(dt) {
     for (const fx of effects) {
       fx.life -= dt;
+      if (fx.kind === 'fire') {
+        // Follow a living enemy's feet; a defeated enemy leaves a short flame
+        // at the contact point. This is visual feedback, not damage over time.
+        if (fx.enemy.active) {
+          fx.x = fx.enemy.x;
+          fx.y = fx.enemy.y + fx.enemy.radius * 0.8;
+        }
+        continue;
+      }
+      if (fx.kind === 'kick') continue;
       fx.x += fx.vx * dt;
       fx.y += fx.vy * dt;
       fx.vy += 210 * dt;
@@ -887,30 +949,23 @@
 
     const activeEnemies = enemies.some(e => e.active);
     if (spawnedEnemies < totalEnemies || activeEnemies) return;
+    // Even if the road is empty, let the last kick finish before the modal.
+    if (catAction || projectiles.some(p => p.active && p.mode === 'waitingKick')) return;
 
-    const profile = getLevelProfile(level);
-    if (profile) {
-      const fullyDefeated = defeatedEnemies >= totalEnemies;
-      if (!fullyDefeated) {
-        finishLevel(false);
-        return;
-      }
-
-      if (getClearedPepperCount() >= profile.requiredClearCount) {
-        finishLevel(true);
-      }
-      return;
-    }
-
-    finishLevel(true);
+    // The puzzle is the objective in every level. Missed enemies cost lives;
+    // a living cat can still win after the board and all waves are resolved.
+    if (getClearedPepperCount() === carrots.length) finishLevel(true);
   }
 
   function finishLevel(won) {
     if (gameState !== 'playing') return;
     gameState = won ? 'won' : 'lost';
+    catAction = null;
+    catPosition = { ...CAT_HOME };
+    projectiles = projectiles.filter(p => p.mode !== 'waitingKick');
     DOM.resultIcon.textContent = won ? '😺' : '😿';
     DOM.resultTitle.textContent = won ? '守住了！' : '差一点！';
-    DOM.resultSubtitle.textContent = won ? '辣椒们成功帮小猫咪挡住了怪潮' : '调整发射顺序和时机，再试一次';
+    DOM.resultSubtitle.textContent = won ? '棋盘清空，小猫守住了！' : '观察阻挡顺序，解锁最后一颗终结椒';
     const accuracy = shots > 0 ? Math.round(successfulShots / shots * 100) : 0;
     DOM.accuracyValue.textContent = `${accuracy}%`;
     DOM.bestComboValue.textContent = String(bestCombo);
@@ -943,11 +998,17 @@
     if (!target) return;
 
     if (toolMode === 'hammer' && toolsLeft.hammer > 0) {
+      if (getFinalPepper() === target) {
+        toolMode = null;
+        updateToolButtons();
+        launchCarrot(target);
+        return;
+      }
+      if (!removeCarrot(target)) return;
       toolsLeft.hammer--;
       toolMode = null;
-      removeCarrot(target);
       updateToolButtons();
-      showMessage('清除阻挡！');
+      if (!finisherReady) showMessage('清除阻挡！');
       return;
     }
 
@@ -963,6 +1024,7 @@
       return false;
     }
 
+    const finisher = getFinalPepper() === carrot;
     carrot.active = false;
     carrotByCell.delete(cellKey(carrot.row, carrot.col));
     const dir = DIRS[carrot.dir];
@@ -973,22 +1035,111 @@
       dir,
       baseDir: carrot.dir,
       type: carrot.type,
-      mode: 'flight',
+      mode: 'waitingKick',
       pathDistance: 0,
+      pathDirection: -1,
+      finisher,
       active: true,
       alreadyHit: new Set(),
       hasHit: false,
     });
+    if (finisher) {
+      finisherLaunched = true;
+      toolMode = null;
+    }
+    // Reserve immediately so rapid valid taps keep their unlock order. The
+    // pepper stays visibly in place until our single cat actually kicks it.
+    if (!catAction || catAction.kind === 'return') startNextCatKick();
+    updateFinisherReady();
+    updateToolButtons();
     tutorialDismissTimer = Math.min(tutorialDismissTimer, 0.7);
-    playTone(feverTimer > 0 ? 660 : 520, 0.045, 'triangle', 0.03);
     return true;
   }
 
+  function startNextCatKick() {
+    const projectile = projectiles.find(p => p.active && p.mode === 'waitingKick');
+    if (!projectile) return;
+    const to = {
+      x: projectile.x - projectile.dir.x * CAT_KICK.behind,
+      y: projectile.y - projectile.dir.y * CAT_KICK.behind,
+    };
+    catAction = {
+      kind: 'kick', projectile, from: { ...catPosition }, to,
+      travel: clamp(Math.hypot(to.x - catPosition.x, to.y - catPosition.y) / 3200, 0.12, 0.22),
+      age: 0, struck: false,
+    };
+  }
+
+  function updateCatKick(dt) {
+    if (!catAction) return;
+    const action = catAction;
+    action.age += dt;
+    const duration = action.kind === 'return' ? CAT_KICK.returnTime : action.travel;
+    const t = clamp(action.age / duration, 0, 1);
+    const ease = t * t * (3 - 2 * t);
+    catPosition.x = lerp(action.from.x, action.to.x, ease);
+    catPosition.y = lerp(action.from.y, action.to.y, ease) - Math.sin(t * Math.PI) * 52;
+    if (action.kind === 'return') {
+      if (t === 1) { catPosition = { ...CAT_HOME }; catAction = null; }
+      return;
+    }
+
+    const impactAt = action.travel + CAT_KICK.windup + CAT_KICK.strike;
+    if (!action.struck && action.age >= impactAt) {
+      action.struck = true;
+      const projectile = action.projectile;
+      projectile.mode = 'flight';
+      effects.push({
+        kind: 'kick', x: projectile.x - projectile.dir.x * 30,
+        y: projectile.y - projectile.dir.y * 30,
+        life: 0.20, maxLife: 0.20, angle: Math.atan2(projectile.dir.y, projectile.dir.x),
+        finisher: projectile.finisher,
+      });
+      createBurst(projectile.x - projectile.dir.x * 28, projectile.y - projectile.dir.y * 28, '#fff2a8', 6);
+      playTone(projectile.finisher ? 820 : feverTimer > 0 ? 660 : 520, 0.07, 'triangle', 0.04);
+      if (projectile.finisher) showMessage('🌟 终结椒出击！触碰即秒杀');
+    }
+    if (action.age >= impactAt + CAT_KICK.recovery) {
+      if (projectiles.some(p => p.active && p.mode === 'waitingKick')) startNextCatKick();
+      else catAction = { kind: 'return', from: { ...catPosition }, to: { ...CAT_HOME }, age: 0 };
+    }
+  }
+
+  function createHitFire(enemy, finisher = false) {
+    const existing = effects.find(fx => fx.kind === 'fire' && fx.enemy === enemy);
+    const fire = existing || { kind: 'fire', enemy };
+    fire.finisher = Boolean(finisher || fire.finisher);
+    fire.life = fire.maxLife = fire.finisher ? 0.8 : 0.6;
+    fire.x = enemy.x;
+    fire.y = enemy.y + enemy.radius * 0.8;
+    fire.width = (enemy.type === 'boss' ? 45 : 32) * (fire.finisher ? 1.3 : 1);
+    if (!existing) effects.push(fire);
+  }
+
   function removeCarrot(carrot) {
-    if (!carrot.active) return;
+    // Never spend a hammer to destroy the only finisher.
+    if (!carrot.active || getFinalPepper() === carrot) return false;
     carrot.active = false;
     carrotByCell.delete(cellKey(carrot.row, carrot.col));
     createBurst(carrot.x, carrot.y, '#f7df72', 9);
+    updateFinisherReady();
+    return true;
+  }
+
+  function getFinalPepper() {
+    let last = null;
+    for (const carrot of carrots) {
+      if (!carrot.active) continue;
+      if (last) return null;
+      last = carrot;
+    }
+    return last;
+  }
+
+  function updateFinisherReady() {
+    const ready = Boolean(getFinalPepper());
+    if (ready && !finisherReady) showMessage('🌟 最后一颗！终结椒已觉醒');
+    finisherReady = ready;
   }
 
   function isBlocked(carrot) {
@@ -1043,7 +1194,7 @@
     DOM.hammerButton.setAttribute('aria-label', `移除 x${toolsLeft.hammer}`);
     DOM.freezeButton.setAttribute('aria-label', `冰冻 x${toolsLeft.freeze}`);
     DOM.bombButton.setAttribute('aria-label', `炸弹 x${toolsLeft.bomb}`);
-    DOM.hammerButton.disabled = toolsLeft.hammer <= 0;
+    DOM.hammerButton.disabled = toolsLeft.hammer <= 0 || finisherReady || finisherLaunched;
     DOM.freezeButton.disabled = toolsLeft.freeze <= 0;
     DOM.bombButton.disabled = toolsLeft.bomb <= 0;
     DOM.hammerButton.classList.toggle('active', toolMode === 'hammer');
@@ -1054,7 +1205,11 @@
     hearts.forEach((heart, index) => {
       heart.classList.toggle('lost', index >= Math.max(0, lives));
     });
-    DOM.waveLabel.textContent = `怪物 ${defeatedEnemies} / ${totalEnemies}`;
+    const remaining = carrots.length - getClearedPepperCount();
+    const remainingEnemies = totalEnemies - spawnedEnemies + enemies.filter(e => e.active).length;
+    DOM.waveLabel.textContent = finisherLaunched
+      ? `终结椒清场 · 剩余怪物 ${remainingEnemies}`
+      : `辣椒 ${remaining} / ${carrots.length} · 已击退 ${defeatedEnemies}`;
     DOM.comboLabel.textContent = feverTimer > 0 ? `🔥${Math.ceil(feverTimer)}` : `×${combo}`;
     DOM.comboLabel.parentElement?.classList.toggle('hot', combo > 0 || feverTimer > 0);
   }
@@ -1063,13 +1218,19 @@
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(backgroundCanvas, 0, 0);
 
-    drawCat(ctx, 100, 425, catHitTimer > 0 ? 0.9 : 1);
+    if (!catAction) drawCat(ctx, 100, 425, catHitTimer > 0 ? 0.9 : 1);
+    else drawCatCrate(ctx);
 
     const profile = getLevelProfile(level);
+    const finalPepper = getFinalPepper();
     for (const carrot of carrots) {
       if (!carrot.active) continue;
       let scale = profile ? profile.pepperScale : 1;
       if (hintTarget === carrot && now < hintUntil) scale *= 1 + Math.sin((hintUntil - now) * 0.025) * 0.08;
+      if (carrot === finalPepper) {
+        drawFinisherAura(ctx, carrot.x, carrot.y, now, true);
+        scale *= 1.18;
+      }
       drawChili(ctx, carrot.x, carrot.y, DIRS[carrot.dir].angle, scale, carrot.type === 'pierce');
     }
 
@@ -1077,10 +1238,20 @@
       if (!projectile.active) continue;
       let angle = DIRS[projectile.baseDir].angle;
       if (projectile.mode === 'path') {
-        const tangent = tangentAtDistance(projectile.pathDistance, -1);
+        const tangent = tangentAtDistance(projectile.pathDistance, projectile.pathDirection ?? -1);
         angle = Math.atan2(tangent.y, tangent.x) + Math.PI / 2;
       }
-      drawChili(ctx, projectile.x, projectile.y, angle, 1, projectile.type === 'pierce');
+      if (projectile.finisher) drawFinisherAura(ctx, projectile.x, projectile.y, now, false);
+      const waiting = projectile.mode === 'waitingKick';
+      const scale = projectile.finisher ? 1.3 : waiting && profile ? profile.pepperScale : 1;
+      drawChili(ctx, projectile.x, projectile.y, angle, scale, projectile.type === 'pierce');
+      if (waiting) {
+        ctx.strokeStyle = '#fff4c5';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(projectile.x, projectile.y, 39, -Math.PI / 2, Math.PI * 1.5);
+        ctx.stroke();
+      }
     }
 
     for (const enemy of enemies) {
@@ -1089,6 +1260,8 @@
     }
 
     for (const fx of effects) {
+      if (fx.kind === 'fire') { drawHitFire(ctx, fx, now); continue; }
+      if (fx.kind === 'kick') { drawKickImpact(ctx, fx); continue; }
       ctx.globalAlpha = clamp(fx.life / fx.maxLife, 0, 1);
       ctx.fillStyle = fx.color;
       ctx.beginPath();
@@ -1096,6 +1269,49 @@
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+    if (catAction) drawKickingCat(ctx);
+  }
+
+  function drawFinisherAura(g, x, y, now, waiting) {
+    const phase = now / 650;
+    const radius = 52 + Math.sin(phase * 2) * 5;
+    g.save();
+    const glow = g.createRadialGradient(x, y, 12, x, y, radius + 22);
+    glow.addColorStop(0, '#fff8c7dd');
+    glow.addColorStop(0.55, '#ffd34f88');
+    glow.addColorStop(1, '#ffd34f00');
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(x, y, radius + 22, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#fff3a2';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(x, y, radius, phase, phase + Math.PI * 1.65);
+    g.stroke();
+    g.fillStyle = '#fffbe0';
+    for (let i = 0; i < 5; i++) {
+      const a = phase + i * Math.PI * 2 / 5;
+      const sx = x + Math.cos(a) * (radius + 5);
+      const sy = y + Math.sin(a) * (radius + 5);
+      g.beginPath();
+      g.moveTo(sx, sy - 7);
+      g.lineTo(sx + 4, sy);
+      g.lineTo(sx, sy + 7);
+      g.lineTo(sx - 4, sy);
+      g.closePath();
+      g.fill();
+    }
+    if (waiting) {
+      g.font = 'bold 25px sans-serif';
+      g.textAlign = 'center';
+      g.lineWidth = 6;
+      g.strokeStyle = '#785020';
+      g.strokeText('终结椒', x, y - 70);
+      g.fillStyle = '#fff1a1';
+      g.fillText('终结椒', x, y - 70);
+    }
+    g.restore();
   }
 
   function drawSprite(g, key, dx, dy, dw, dh) {
@@ -1171,6 +1387,163 @@
     g.stroke();
     g.fillStyle = '#fff';
     [-15, 15].forEach(ex => { g.beginPath(); g.arc(ex, -20, 8, 0, Math.PI * 2); g.fill(); });
+    g.restore();
+  }
+
+  function drawCatCrate(g) {
+    // Leave the original perch behind while the same cat flies out.
+    if (assetSheet) g.drawImage(assetSheet, 90, 750, 200, 115, 59, 416, 91, 52);
+  }
+
+  function drawKickingCat(g) {
+    const action = catAction;
+    const returning = action.kind === 'return';
+    const dir = returning ? { x: -1, y: 0 } : action.projectile.dir;
+    const moving = returning || action.age < action.travel;
+    const kickTime = returning ? 0 : action.age - action.travel;
+    const impactAt = CAT_KICK.windup + CAT_KICK.strike;
+    const extension = moving || kickTime < CAT_KICK.windup ? 0
+      : kickTime < impactAt ? (kickTime - CAT_KICK.windup) / CAT_KICK.strike
+        : 1 - clamp((kickTime - impactAt) / CAT_KICK.recovery, 0, 1);
+    const windup = !moving && kickTime < CAT_KICK.windup ? Math.sin(kickTime / CAT_KICK.windup * Math.PI) : 0;
+    g.save();
+    g.globalAlpha = 1;
+
+    // Short speed streaks follow the cat, without drawing across the puzzle.
+    if (moving) {
+      const angle = Math.atan2(action.to.y - action.from.y, action.to.x - action.from.x);
+      g.save();
+      g.translate(catPosition.x, catPosition.y);
+      g.rotate(angle);
+      g.strokeStyle = '#fff7cfbb';
+      g.lineCap = 'round';
+      for (let i = -1; i <= 1; i++) {
+        g.lineWidth = i === 0 ? 7 : 4;
+        g.beginPath();
+        g.moveTo(-58, i * 18);
+        g.lineTo(-94 - (i === 0 ? 20 : 0), i * 18);
+        g.stroke();
+      }
+      g.restore();
+    }
+    g.fillStyle = '#53321725';
+    g.beginPath();
+    g.ellipse(catPosition.x, catPosition.y + 58, 38, 10, 0, 0, Math.PI * 2);
+    g.fill();
+    g.translate(catPosition.x, catPosition.y);
+    g.rotate(dir.x === 0 ? Math.atan2(dir.y, dir.x) : 0);
+    g.scale(dir.x < 0 ? -1 : 1, 1);
+
+    g.save();
+    g.translate(-windup * 6 - extension * 4, 0);
+    g.rotate(-extension * 0.16);
+    g.scale(moving ? 1.08 : 1 + windup * 0.08, moving ? 0.94 : 1 - windup * 0.1);
+    if (assetSheet) {
+      // Reuse the character art, clipping around the paws to exclude its box.
+      g.translate(-57, -67);
+      g.scale(0.46, 0.46);
+      g.beginPath();
+      g.moveTo(0, 0); g.lineTo(265, 0); g.lineTo(265, 224);
+      g.lineTo(211, 225); g.lineTo(205, 246); g.lineTo(175, 260);
+      g.lineTo(83, 260); g.lineTo(72, 230); g.lineTo(0, 221);
+      g.closePath();
+      g.clip();
+      g.drawImage(assetSheet, 50, 510, 265, 260, 0, 0, 265, 260);
+    } else {
+      drawCat(g, 0, 5, 1);
+    }
+    g.restore();
+
+    // An articulated hind leg makes the contact a kick, not a body collision.
+    const pawX = lerp(9 - windup * 10, 52, extension);
+    const pawY = lerp(34, 0, extension);
+    g.lineCap = 'round';
+    for (const [color, width] of [['#8d4b25', 21], ['#fff1ce', 15]]) {
+      g.strokeStyle = color;
+      g.lineWidth = width;
+      g.beginPath();
+      g.moveTo(4, 22);
+      g.quadraticCurveTo(24, 32 - extension * 12, pawX, pawY);
+      g.stroke();
+    }
+    g.fillStyle = '#fff6dc';
+    g.strokeStyle = '#8d4b25';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.ellipse(pawX + 3, pawY, 14, 12, -extension * 0.25, 0, Math.PI * 2);
+    g.fill(); g.stroke();
+    g.fillStyle = '#ee9b97';
+    g.beginPath(); g.ellipse(pawX + 8, pawY + 1, 5, 6, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+
+  function drawKickImpact(g, fx) {
+    const t = 1 - fx.life / fx.maxLife;
+    g.save();
+    g.globalAlpha = clamp(fx.life / 0.12, 0, 1);
+    g.translate(fx.x, fx.y);
+    g.rotate(fx.angle);
+    g.scale(0.65 + t * 0.65, 0.65 + t * 0.65);
+    g.fillStyle = fx.finisher ? '#fffbc5' : '#fff4d1';
+    g.strokeStyle = fx.finisher ? '#ffad1e' : '#f39234';
+    g.lineWidth = 3;
+    g.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const a = i * Math.PI / 8;
+      const radius = i % 2 ? 12 : 30;
+      const x = Math.cos(a) * radius;
+      const y = Math.sin(a) * radius;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.closePath(); g.fill(); g.stroke();
+    g.restore();
+  }
+
+  function drawHitFire(g, fx, now) {
+    g.save();
+    g.globalAlpha = clamp(fx.life / 0.22, 0, 1);
+    g.translate(fx.x, fx.y);
+    const glow = g.createRadialGradient(0, -8, 2, 0, -8, fx.width * 1.7);
+    glow.addColorStop(0, fx.finisher ? '#fff6aabb' : '#ffb135aa');
+    glow.addColorStop(1, '#ff721000');
+    g.fillStyle = glow;
+    g.fillRect(-fx.width * 1.7, -fx.width * 1.9, fx.width * 3.4, fx.width * 2.8);
+    g.fillStyle = fx.finisher ? '#ffd25188' : '#f5663488';
+    g.beginPath(); g.ellipse(0, 2, fx.width, 9, 0, 0, Math.PI * 2); g.fill();
+
+    for (let i = -2; i <= 2; i++) {
+      const phase = now * 0.018 + i * 2.3;
+      const height = (fx.finisher ? 64 : 43) * (1 - Math.abs(i) * 0.14) + Math.sin(phase) * 7;
+      const width = fx.width * 0.58;
+      const sway = Math.sin(phase * 0.7) * 8;
+      g.save();
+      g.translate(i * fx.width * 0.37, Math.abs(i) * -2);
+      const flame = g.createLinearGradient(0, 0, 0, -height);
+      flame.addColorStop(0, fx.finisher ? '#ff942e' : '#ef4929');
+      flame.addColorStop(0.45, '#ffb72f');
+      flame.addColorStop(1, '#fff1a3');
+      g.fillStyle = flame;
+      g.beginPath();
+      g.moveTo(-width / 2, 0);
+      g.bezierCurveTo(-width, -height * 0.45, sway - width * 0.1, -height * 0.6, sway, -height);
+      g.bezierCurveTo(sway + width * 0.2, -height * 0.6, width, -height * 0.3, width / 2, 0);
+      g.closePath(); g.fill();
+      g.fillStyle = '#fff3aa';
+      g.beginPath();
+      g.moveTo(-width * 0.23, 0);
+      g.quadraticCurveTo(-width * 0.4, -height * 0.25, 2, -height * 0.52);
+      g.quadraticCurveTo(width * 0.45, -height * 0.16, width * 0.23, 0);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+    for (let i = 0; i < 3; i++) {
+      const rise = ((now * 0.0018 + i * 0.33) % 1);
+      g.fillStyle = '#ffe99a';
+      g.globalAlpha = (1 - rise) * clamp(fx.life / 0.22, 0, 1);
+      g.beginPath();
+      g.arc(Math.sin(i * 4 + rise * 3) * fx.width * 0.65, -20 - rise * 58, 2.5, 0, Math.PI * 2);
+      g.fill();
+    }
     g.restore();
   }
 
@@ -1539,9 +1912,7 @@
   function evaluateLevelDifficulty(layout) {
     const puzzle = evaluatePuzzleLayout(layout);
     const profile = getLevelProfile(level);
-    const requiredClearRatio = profile
-      ? profile.requiredClearCount / layout.length
-      : Math.min(1, 0.45 + level * 0.03);
+    const requiredClearRatio = 1;
 
     let estimatedTotalHp = 0;
     const plannedTypes = enemySpawnPlan.length
@@ -1609,6 +1980,8 @@
       time: {
         spawnInterval,
         speedBoost,
+        enemySpeedScale: ENEMY_SPEED_SCALE,
+        openingThinkTime: OPENING_THINK_TIME,
         score: Math.round(timeScore * 10) / 10,
       },
       tolerance: {
@@ -1666,6 +2039,7 @@
     DOM.game.dataset.currentWave = String(currentWave);
     DOM.game.dataset.nextWaveUnlockAt = next ? String(next.unlockAt) : '';
     DOM.game.dataset.nextEnemyType = next ? next.type : '';
+    DOM.game.dataset.finisher = finisherReady ? 'ready' : finisherLaunched ? 'launched' : 'none';
   }
 
   function showFatalError(error) {
@@ -1714,6 +2088,10 @@
       projectiles: projectiles.length,
       currentWave,
       spawnPlanIndex,
+      finisherReady,
+      finisherLaunched,
+      pendingKicks: projectiles.filter(p => p.active && p.mode === 'waitingKick').length,
+      catPhase: catAction ? catAction.kind : 'idle',
     }),
     getPeppers: () => carrots.filter(c => c.active).map(c => ({ row: c.row, col: c.col, dir: c.dir, x: c.x, y: c.y, blocked: isBlocked(c) })),
     getDifficultyReport: () => difficultyReport ? JSON.parse(JSON.stringify(difficultyReport)) : null,
