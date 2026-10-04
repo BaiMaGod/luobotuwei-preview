@@ -694,7 +694,24 @@
       speed,
       active: true,
       hitFlash: 0,
+      hitReaction: 0,
+      rageFlash: 0,
+      age: 0,
+      spawnPulse: type === 'boss' ? 0.55 : 0.26,
     });
+
+    if (type === 'boss') {
+      effects.push({
+        kind: 'spawnShock',
+        x: start.x,
+        y: start.y + config.radius * 0.65,
+        life: 0.7,
+        maxLife: 0.7,
+        radius: 28,
+      });
+      createBurst(start.x, start.y, '#ffb13c', 12);
+      playTone(72, 0.18, 'sawtooth', 0.045);
+    }
   }
 
   function enemyConfig(type) {
@@ -776,6 +793,10 @@
     const speedFactor = freezeTimer > 0 ? 0 : 1;
     for (const enemy of enemies) {
       if (!enemy.active) continue;
+      enemy.age += dt;
+      if (enemy.hitReaction > 0) enemy.hitReaction -= dt;
+      if (enemy.rageFlash > 0) enemy.rageFlash -= dt;
+      if (enemy.spawnPulse > 0) enemy.spawnPulse -= dt;
       enemy.previousDistance = enemy.distance;
       enemy.distance += enemy.speed * dt * speedFactor;
       const p = pointAtDistance(enemy.distance);
@@ -864,6 +885,8 @@
   function hitEnemy(enemy, projectile) {
     enemy.hp = projectile.finisher ? 0 : enemy.hp - BASE_DAMAGE * (feverTimer > 0 ? 1.2 : 1);
     enemy.hitFlash = 0.18;
+    enemy.hitReaction = enemy.type === 'boss' ? 0.24 : enemy.type === 'tank' ? 0.20 : 0.17;
+    enemy.rageFlash = 0.18;
     createHitFire(enemy, projectile.finisher);
     if (!projectile.hasHit) {
       projectile.hasHit = true;
@@ -887,10 +910,33 @@
 
   function killEnemy(enemy, finishingHit = false) {
     if (!enemy.active) return;
+    const deathLife = enemy.type === 'boss' ? 0.72 : enemy.type === 'tank' ? 0.50 : 0.38;
+    effects.push({
+      kind: 'enemyDeath',
+      type: enemy.type,
+      x: enemy.x,
+      y: enemy.y,
+      life: deathLife,
+      maxLife: deathLife,
+      rotation: enemy.type === 'fast' ? (Math.random() > 0.5 ? 1 : -1) * 1.15 : (Math.random() - 0.5) * 0.45,
+      finishingHit,
+    });
+    if (enemy.type === 'boss') {
+      effects.push({
+        kind: 'spawnShock',
+        x: enemy.x,
+        y: enemy.y + enemy.radius * 0.62,
+        life: 0.85,
+        maxLife: 0.85,
+        radius: 36,
+        death: true,
+      });
+      createBurst(enemy.x, enemy.y, '#ffb43f', finishingHit ? 32 : 24);
+    }
     enemy.active = false;
     defeatedEnemies++;
-    createBurst(enemy.x, enemy.y, finishingHit ? '#ffe47a' : enemy.type === 'tank' ? '#9fd4ff' : '#ff8b75', finishingHit ? 24 : 14);
-    playTone(180, 0.09, 'sawtooth', 0.04);
+    createBurst(enemy.x, enemy.y, finishingHit ? '#ffe47a' : enemy.type === 'tank' ? '#9fd4ff' : enemy.type === 'fast' ? '#b98cff' : '#ff8b75', finishingHit ? 24 : 14);
+    playTone(enemy.type === 'boss' ? 92 : 180, enemy.type === 'boss' ? 0.18 : 0.09, 'sawtooth', enemy.type === 'boss' ? 0.055 : 0.04);
   }
 
   function reachGoal(enemy) {
@@ -931,7 +977,7 @@
         }
         continue;
       }
-      if (fx.kind === 'kick') continue;
+      if (fx.kind === 'kick' || fx.kind === 'enemyDeath' || fx.kind === 'spawnShock') continue;
       fx.x += fx.vx * dt;
       fx.y += fx.vy * dt;
       fx.vy += 210 * dt;
@@ -1281,6 +1327,8 @@
     for (const fx of effects) {
       if (fx.kind === 'fire') { drawHitFire(ctx, fx, now); continue; }
       if (fx.kind === 'kick') { drawKickImpact(ctx, fx); continue; }
+      if (fx.kind === 'enemyDeath') { drawEnemyDeath(ctx, fx, now); continue; }
+      if (fx.kind === 'spawnShock') { drawEnemyShock(ctx, fx); continue; }
       ctx.globalAlpha = clamp(fx.life / fx.maxLife, 0, 1);
       ctx.fillStyle = fx.color;
       ctx.beginPath();
@@ -1566,33 +1614,149 @@
     g.restore();
   }
 
+  function enemyVisualSize(type) {
+    if (type === 'boss') return 154;
+    if (type === 'tank') return 120;
+    if (type === 'fast') return 98;
+    return 106;
+  }
+
+  function drawEnemyShock(g, fx) {
+    const t = 1 - fx.life / fx.maxLife;
+    const radius = fx.radius + t * (fx.death ? 92 : 68);
+    g.save();
+    g.globalAlpha = (1 - t) * (fx.death ? 0.7 : 0.48);
+    g.translate(fx.x, fx.y);
+    g.strokeStyle = fx.death ? '#ff7d2f' : '#f3b74d';
+    g.lineWidth = fx.death ? 8 - t * 4 : 6 - t * 3;
+    g.beginPath();
+    g.ellipse(0, 0, radius, radius * 0.30, 0, 0, Math.PI * 2);
+    g.stroke();
+    if (fx.death) {
+      g.strokeStyle = '#ffd36f';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.ellipse(0, 0, radius * 0.72, radius * 0.20, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  function drawEnemyDeath(g, fx, now) {
+    const art = enemyArt[fx.type];
+    if (!art) return;
+    const t = 1 - fx.life / fx.maxLife;
+    const size = enemyVisualSize(fx.type);
+    let y = fx.y;
+    let rotation = fx.rotation * t;
+    let sx = 1;
+    let sy = 1;
+    let alpha = clamp(fx.life / (fx.maxLife * 0.72), 0, 1);
+
+    if (fx.type === 'fast') {
+      y -= t * 38;
+      rotation *= 1.8;
+      sx = sy = 1 - t * 0.42;
+    } else if (fx.type === 'tank') {
+      y += t * 13;
+      sx = 1 + t * 0.16;
+      sy = 1 - t * 0.52;
+      rotation *= 0.35;
+    } else if (fx.type === 'boss') {
+      const collapse = t < 0.42 ? 1 + t * 0.10 : 1.042 - (t - 0.42) * 0.48;
+      sx = collapse;
+      sy = t < 0.35 ? 1 + t * 0.05 : Math.max(0.34, 1.02 - (t - 0.35) * 0.95);
+      y += t * 18;
+      rotation *= 0.18;
+      alpha = clamp(fx.life / (fx.maxLife * 0.42), 0, 1);
+    } else {
+      y += t * 18;
+      rotation *= 0.8;
+      sx = 1 + t * 0.08;
+      sy = 1 - t * 0.38;
+    }
+
+    g.save();
+    g.globalAlpha = alpha;
+    g.translate(fx.x, y);
+    g.rotate(rotation);
+    g.scale(sx, sy);
+    if (fx.finishingHit) g.filter = 'brightness(1.5) saturate(1.35)';
+    else if (fx.type === 'boss') g.filter = 'saturate(1.3) contrast(1.08)';
+    g.drawImage(art, -size / 2, -size / 2, size, size);
+    g.restore();
+  }
+
   function drawMonster(g, enemy) {
     const flash = enemy.hitFlash > 0;
     const now = performance.now() / 1000;
     const typePhase = enemy.type === 'fast' ? 2.6 : enemy.type === 'boss' ? 0.8 : enemy.type === 'tank' ? 1.25 : 1.65;
-    const bob = Math.sin(now * typePhase * 3 + enemy.distance * 0.022) * (enemy.type === 'tank' ? 1.2 : enemy.type === 'boss' ? 1.6 : 2.4);
-    const breathe = 1 + Math.sin(now * typePhase * 2.1 + enemy.distance * 0.012) * (enemy.type === 'boss' ? 0.025 : 0.04);
+    const hpRatio = enemy.maxHp > 0 ? clamp(enemy.hp / enemy.maxHp, 0, 1) : 1;
+    const lowHp = hpRatio <= 0.35;
+    const bob = Math.sin(now * typePhase * 3 + enemy.distance * 0.022) * (enemy.type === 'tank' ? 1.2 : enemy.type === 'boss' ? 1.7 : 2.4);
+    const breathe = 1 + Math.sin(now * typePhase * 2.1 + enemy.distance * 0.012) * (enemy.type === 'boss' ? 0.026 : 0.04);
+    const rageBeat = lowHp ? 1 + Math.max(0, Math.sin(now * (enemy.type === 'boss' ? 7.5 : 9))) * (enemy.type === 'boss' ? 0.055 : 0.035) : 1;
     const hitPulse = flash ? 1 + Math.sin(enemy.hitFlash * 45) * 0.08 : 1;
+    const spawnScale = enemy.spawnPulse > 0 ? 1 - clamp(enemy.spawnPulse / (enemy.type === 'boss' ? 0.55 : 0.26), 0, 1) * (enemy.type === 'boss' ? 0.26 : 0.12) : 1;
+    const recoilT = clamp(enemy.hitReaction / (enemy.type === 'boss' ? 0.24 : enemy.type === 'tank' ? 0.20 : 0.17), 0, 1);
+    const tangent = tangentAtDistance(enemy.distance, 1);
+    const recoil = Math.sin(recoilT * Math.PI) * (enemy.type === 'boss' ? 7 : enemy.type === 'tank' ? 6 : 9);
+    const drawX = enemy.x - tangent.x * recoil;
+    const drawY = enemy.y + bob - tangent.y * recoil;
     const art = enemyArt[enemy.type];
 
+    if (enemy.type === 'boss' || lowHp) {
+      const auraPulse = 0.72 + Math.sin(now * (enemy.type === 'boss' ? 4.2 : 6.8)) * 0.12;
+      g.save();
+      g.globalAlpha = (enemy.type === 'boss' ? 0.20 : 0.12) * auraPulse;
+      const auraRadius = enemy.type === 'boss' ? 84 : enemy.type === 'tank' ? 58 : 48;
+      const aura = g.createRadialGradient(enemy.x, enemy.y, 8, enemy.x, enemy.y, auraRadius);
+      aura.addColorStop(0, lowHp ? '#ff4a22cc' : '#ff9b35aa');
+      aura.addColorStop(1, '#ff3d1200');
+      g.fillStyle = aura;
+      g.beginPath();
+      g.arc(enemy.x, enemy.y, auraRadius, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+
+    if (enemy.type === 'boss') {
+      const ring = 58 + Math.sin(now * 3.2) * 4;
+      g.save();
+      g.globalAlpha = 0.24 + (lowHp ? 0.12 : 0);
+      g.strokeStyle = lowHp ? '#ff5b2e' : '#f1a447';
+      g.lineWidth = 4;
+      g.beginPath();
+      g.ellipse(enemy.x, enemy.y + enemy.radius * 0.74, ring, 13, 0, 0, Math.PI * 2);
+      g.stroke();
+      g.restore();
+    }
+
     g.save();
-    g.globalAlpha = 0.22;
-    g.fillStyle = '#4e2c24';
+    g.globalAlpha = 0.24;
+    g.fillStyle = '#3e241f';
     g.beginPath();
-    const shadowW = enemy.type === 'boss' ? 68 : enemy.type === 'tank' ? 54 : enemy.type === 'fast' ? 34 : 42;
-    const shadowH = enemy.type === 'boss' ? 17 : enemy.type === 'tank' ? 14 : enemy.type === 'fast' ? 9 : 11;
-    g.ellipse(enemy.x, enemy.y + enemy.radius * 0.78, shadowW, shadowH, 0, 0, Math.PI * 2);
+    const shadowW = enemy.type === 'boss' ? 72 : enemy.type === 'tank' ? 58 : enemy.type === 'fast' ? 35 : 44;
+    const shadowH = enemy.type === 'boss' ? 18 : enemy.type === 'tank' ? 15 : enemy.type === 'fast' ? 9 : 11;
+    g.ellipse(enemy.x, enemy.y + enemy.radius * 0.82, shadowW, shadowH, 0, 0, Math.PI * 2);
     g.fill();
     g.restore();
 
     if (art) {
-      const size = enemy.type === 'boss' ? 154 : enemy.type === 'tank' ? 120 : enemy.type === 'fast' ? 98 : 106;
-      const lean = enemy.type === 'fast' ? Math.sin(now * 8 + enemy.distance * 0.035) * 0.045 : 0;
+      const size = enemyVisualSize(enemy.type);
+      const lean = enemy.type === 'fast' ? Math.sin(now * 9 + enemy.distance * 0.038) * 0.075
+        : enemy.type === 'boss' ? Math.sin(now * 1.8 + enemy.distance * 0.006) * 0.018
+        : 0;
+      const stompY = enemy.type === 'tank' ? Math.max(0, Math.sin(now * 5.1 + enemy.distance * 0.03)) * 2.2 : 0;
       g.save();
-      g.translate(enemy.x, enemy.y + bob);
+      g.translate(drawX, drawY + stompY);
       g.rotate(lean);
-      g.scale(hitPulse * breathe, hitPulse / breathe);
-      if (flash) g.filter = 'brightness(1.55) saturate(1.08)';
+      g.scale(hitPulse * breathe * rageBeat * spawnScale, hitPulse / breathe * rageBeat * spawnScale);
+      if (flash) g.filter = 'brightness(1.62) saturate(1.12)';
+      else if (lowHp) g.filter = enemy.type === 'boss'
+        ? 'saturate(1.42) contrast(1.12) drop-shadow(0 0 7px rgba(255,70,25,.65))'
+        : 'saturate(1.26) contrast(1.06)';
+      else if (enemy.type === 'boss') g.filter = 'saturate(1.10) contrast(1.04)';
       g.drawImage(art, -size / 2, -size / 2, size, size);
       g.restore();
       drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 96 : enemy.type === 'tank' ? 74 : enemy.type === 'fast' ? 64 : 68), enemy.hp);
@@ -1602,8 +1766,8 @@
     if (assetSheet) {
       const bossScale = enemy.type === 'boss' ? 1.28 : 1;
       g.save();
-      g.translate(enemy.x, enemy.y + bob);
-      g.scale(hitPulse * bossScale * breathe, bossScale * hitPulse / breathe);
+      g.translate(drawX, drawY);
+      g.scale(hitPulse * bossScale * breathe * rageBeat * spawnScale, bossScale * hitPulse / breathe * rageBeat * spawnScale);
       if (enemy.type === 'fast') g.filter = 'hue-rotate(245deg) saturate(.95)';
       if (enemy.type === 'tank') g.filter = 'hue-rotate(165deg) saturate(.82) brightness(.95)';
       if (enemy.type === 'boss') g.filter = 'hue-rotate(32deg) saturate(1.25) brightness(1.02)';
@@ -1622,7 +1786,8 @@
           ? { body: '#d9a13a', edge: '#8e5d1c' }
           : { body: '#e9685a', edge: '#9b3c36' };
     g.save();
-    g.translate(enemy.x, enemy.y + bob);
+    g.translate(drawX, drawY);
+    g.scale(rageBeat * spawnScale, rageBeat * spawnScale);
     g.fillStyle = flash ? '#fff5aa' : cfg.body;
     g.strokeStyle = cfg.edge;
     g.lineWidth = enemy.type === 'boss' ? 7 : 5;
