@@ -698,6 +698,7 @@
       rageFlash: 0,
       age: 0,
       spawnPulse: type === 'boss' ? 0.55 : 0.26,
+      stompTimer: type === 'boss' ? 0.55 : type === 'tank' ? 0.85 : 0,
     });
 
     if (type === 'boss') {
@@ -803,6 +804,20 @@
       enemy.x = p.x;
       enemy.y = p.y;
       if (enemy.hitFlash > 0) enemy.hitFlash -= dt;
+      if (enemy.stompTimer > 0 && speedFactor > 0) {
+        enemy.stompTimer -= dt;
+        if (enemy.stompTimer <= 0) {
+          effects.push({
+            kind: 'groundStep',
+            type: enemy.type,
+            x: enemy.x,
+            y: enemy.y + enemy.radius * 0.75,
+            life: enemy.type === 'boss' ? 0.34 : 0.24,
+            maxLife: enemy.type === 'boss' ? 0.34 : 0.24,
+          });
+          enemy.stompTimer = enemy.type === 'boss' ? 1.05 : 1.45;
+        }
+      }
       if (enemy.distance >= PATH.totalLength) reachGoal(enemy);
     }
   }
@@ -977,7 +992,7 @@
         }
         continue;
       }
-      if (fx.kind === 'kick' || fx.kind === 'enemyDeath' || fx.kind === 'spawnShock') continue;
+      if (fx.kind === 'kick' || fx.kind === 'enemyDeath' || fx.kind === 'spawnShock' || fx.kind === 'groundStep') continue;
       fx.x += fx.vx * dt;
       fx.y += fx.vy * dt;
       fx.vy += 210 * dt;
@@ -1329,6 +1344,7 @@
       if (fx.kind === 'kick') { drawKickImpact(ctx, fx); continue; }
       if (fx.kind === 'enemyDeath') { drawEnemyDeath(ctx, fx, now); continue; }
       if (fx.kind === 'spawnShock') { drawEnemyShock(ctx, fx); continue; }
+      if (fx.kind === 'groundStep') { drawEnemyGroundStep(ctx, fx); continue; }
       ctx.globalAlpha = clamp(fx.life / fx.maxLife, 0, 1);
       ctx.fillStyle = fx.color;
       ctx.beginPath();
@@ -1615,10 +1631,17 @@
   }
 
   function enemyVisualSize(type) {
-    if (type === 'boss') return 154;
-    if (type === 'tank') return 120;
-    if (type === 'fast') return 98;
-    return 106;
+    if (type === 'boss') return 180;
+    if (type === 'tank') return 128;
+    if (type === 'fast') return 104;
+    return 112;
+  }
+
+  function enemyVisualYOffset(type) {
+    if (type === 'boss') return -8;
+    if (type === 'fast') return -7;
+    if (type === 'tank') return 3;
+    return 0;
   }
 
   function drawEnemyShock(g, fx) {
@@ -1638,6 +1661,31 @@
       g.beginPath();
       g.ellipse(0, 0, radius * 0.72, radius * 0.20, 0, 0, Math.PI * 2);
       g.stroke();
+    }
+    g.restore();
+  }
+
+  function drawEnemyGroundStep(g, fx) {
+    const t = 1 - fx.life / fx.maxLife;
+    const boss = fx.type === 'boss';
+    const radius = (boss ? 32 : 22) + t * (boss ? 34 : 22);
+    g.save();
+    g.translate(fx.x, fx.y);
+    g.globalAlpha = (1 - t) * (boss ? 0.34 : 0.22);
+    g.strokeStyle = boss ? '#ff9c42' : '#7396a3';
+    g.lineWidth = boss ? 5 : 3;
+    g.beginPath();
+    g.ellipse(0, 0, radius, radius * 0.28, 0, 0, Math.PI * 2);
+    g.stroke();
+    g.fillStyle = boss ? '#7c4b31' : '#65767b';
+    for (let i = 0; i < (boss ? 5 : 3); i++) {
+      const a = (i / (boss ? 5 : 3)) * Math.PI * 2 + 0.5;
+      const rr = radius * (0.55 + 0.15 * Math.sin(i * 2.1));
+      const px = Math.cos(a) * rr;
+      const py = Math.sin(a) * rr * 0.24 - t * (boss ? 7 : 4);
+      g.beginPath();
+      g.arc(px, py, boss ? 3.5 : 2.5, 0, Math.PI * 2);
+      g.fill();
     }
     g.restore();
   }
@@ -1744,14 +1792,28 @@
 
     if (art) {
       const size = enemyVisualSize(enemy.type);
-      const lean = enemy.type === 'fast' ? Math.sin(now * 9 + enemy.distance * 0.038) * 0.075
-        : enemy.type === 'boss' ? Math.sin(now * 1.8 + enemy.distance * 0.006) * 0.018
+      const lean = enemy.type === 'fast' ? Math.sin(now * 10 + enemy.distance * 0.042) * 0.10
+        : enemy.type === 'boss' ? Math.sin(now * 1.6 + enemy.distance * 0.005) * 0.025
         : 0;
-      const stompY = enemy.type === 'tank' ? Math.max(0, Math.sin(now * 5.1 + enemy.distance * 0.03)) * 2.2 : 0;
+      const tankStep = enemy.type === 'tank'
+        ? Math.pow(Math.max(0, Math.sin(now * 4.5 + enemy.distance * 0.025)), 6)
+        : 0;
+      const bossLurch = enemy.type === 'boss'
+        ? Math.pow(Math.max(0, Math.sin(now * 2.8 + enemy.distance * 0.012)), 4)
+        : 0;
+      const fastDive = enemy.type === 'fast'
+        ? Math.sin(now * 8.5 + enemy.distance * 0.055) * 3.6
+        : 0;
+      const artYOffset = enemyVisualYOffset(enemy.type);
       g.save();
-      g.translate(drawX, drawY + stompY);
+      g.translate(drawX, drawY + artYOffset + fastDive + tankStep * 2.5 + bossLurch * 2.2);
       g.rotate(lean);
-      g.scale(hitPulse * breathe * rageBeat * spawnScale, hitPulse / breathe * rageBeat * spawnScale);
+      const heavyX = 1 + tankStep * 0.035 + bossLurch * 0.025;
+      const heavyY = 1 - tankStep * 0.035 - bossLurch * 0.018;
+      g.scale(
+        hitPulse * breathe * rageBeat * spawnScale * heavyX,
+        hitPulse / breathe * rageBeat * spawnScale * heavyY
+      );
       if (flash) g.filter = 'brightness(1.62) saturate(1.12)';
       else if (lowHp) g.filter = enemy.type === 'boss'
         ? 'saturate(1.42) contrast(1.12) drop-shadow(0 0 7px rgba(255,70,25,.65))'
@@ -1759,7 +1821,7 @@
       else if (enemy.type === 'boss') g.filter = 'saturate(1.10) contrast(1.04)';
       g.drawImage(art, -size / 2, -size / 2, size, size);
       g.restore();
-      drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 96 : enemy.type === 'tank' ? 74 : enemy.type === 'fast' ? 64 : 68), enemy.hp);
+      drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 116 : enemy.type === 'tank' ? 82 : enemy.type === 'fast' ? 72 : 74), enemy.hp, enemy.maxHp, enemy.type);
       return;
     }
 
@@ -1774,7 +1836,7 @@
       if (flash) g.filter = (g.filter && g.filter !== 'none' ? g.filter + ' ' : '') + 'brightness(1.55)';
       drawSprite(g, 'monster', -40, -40, 80, 80);
       g.restore();
-      drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 67 : 53), enemy.hp);
+      drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 86 : 58), enemy.hp, enemy.maxHp, enemy.type);
       return;
     }
 
@@ -1796,20 +1858,41 @@
     g.fill();
     g.stroke();
     g.restore();
-    drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 67 : 53), enemy.hp);
+    drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 86 : 58), enemy.hp, enemy.maxHp, enemy.type);
   }
 
-  function drawHpLabel(g, x, y, hp) {
+  function drawHpLabel(g, x, y, hp, maxHp = hp, type = 'normal') {
+    const ratio = clamp(maxHp > 0 ? hp / maxHp : 0, 0, 1);
+    const width = type === 'boss' ? 116 : type === 'tank' ? 84 : type === 'fast' ? 68 : 76;
+    const height = type === 'boss' ? 12 : 9;
     const text = String(Math.max(0, Math.ceil(hp)));
+
     g.save();
-    g.font = '900 24px Arial Rounded MT Bold, Arial, sans-serif';
+    roundRect(g, x - width / 2 - 3, y - height / 2 - 3, width + 6, height + 6, height);
+    g.fillStyle = 'rgba(49,31,27,.86)';
+    g.fill();
+
+    if (ratio > 0) {
+      roundRect(g, x - width / 2, y - height / 2, width * ratio, height, height / 2);
+      g.fillStyle = ratio <= 0.35 ? '#ff4938' : ratio <= 0.65 ? '#ffb13f' : '#7ed957';
+      g.fill();
+      g.globalAlpha = 0.45;
+      roundRect(g, x - width / 2 + 2, y - height / 2 + 1, Math.max(0, width * ratio - 4), Math.max(2, height * 0.34), height / 3);
+      g.fillStyle = '#fff';
+      g.fill();
+      g.globalAlpha = 1;
+    }
+
+    g.font = type === 'boss'
+      ? '900 18px Arial Rounded MT Bold, Arial, sans-serif'
+      : '900 15px Arial Rounded MT Bold, Arial, sans-serif';
     g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.lineWidth = 6;
-    g.strokeStyle = 'rgba(77,49,28,.9)';
-    g.strokeText(text, x, y);
-    g.fillStyle = '#fff9c9';
-    g.fillText(text, x, y);
+    g.textBaseline = 'bottom';
+    g.lineWidth = 4;
+    g.strokeStyle = 'rgba(59,34,28,.94)';
+    g.strokeText(text, x, y - height / 2 - 5);
+    g.fillStyle = '#fff8d7';
+    g.fillText(text, x, y - height / 2 - 5);
     g.restore();
   }
 
