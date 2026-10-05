@@ -831,53 +831,212 @@ button { font: inherit; }
 }
 
 
-/* High-DPI result-screen artwork.
-   Source artwork is 700×1178 and is displayed at the exact same aspect ratio.
-   This avoids the previous 395×683 vertical stretch and keeps high-DPI screens sharper.
-   It only activates after main.js confirms the WebP loaded; otherwise the CSS fallback remains. */
+/* Layered result-screen artwork.
+   Major art elements come from a transparent sprite atlas and are positioned as
+   separate DOM layers over a CSS panel. This removes the old rectangular-poster edge. */
+.modal.result-art-ready[data-result="win"] {
+  --result-atlas: url("./assets/result-layer-atlas.webp?v=result-layers-20261005-1850");
+}
+
 .modal.result-art-ready[data-result="win"] .result-confetti {
-  display: none;
+  display: block;
+  z-index: 1;
+  opacity: .74;
+  filter: drop-shadow(0 2px 3px rgb(88 55 16 / 20%));
 }
 
 .modal.result-art-ready[data-result="win"] .modal-card {
   position: relative;
+  z-index: 3;
   width: 395px;
-  height: 665px;
+  height: 650px;
   max-width: none;
   padding: 0;
   border: 0;
   border-radius: 0;
   color: #57351f;
-  background: transparent url("./assets/result-ui-hd.webp?v=result-hd-20261005-1718") center / 395px 665px no-repeat;
+  background: none;
   box-shadow: none;
   overflow: visible;
   isolation: isolate;
   transform-origin: center center;
-  image-rendering: auto;
 }
 
-.modal.result-art-ready[data-result="win"] .modal-card::before,
-.modal.result-art-ready[data-result="win"] .modal-card::after,
+/* Layer 1: soft floating shadow / ambient glow. */
+.modal.result-art-ready[data-result="win"] .modal-card::after {
+  content: "";
+  position: absolute;
+  z-index: -3;
+  left: 14px;
+  right: 14px;
+  top: 49px;
+  bottom: -4px;
+  border-radius: 48px 48px 42px 42px / 38px 38px 48px 48px;
+  background:
+    radial-gradient(ellipse at 50% 12%, rgb(255 228 100 / 40%), transparent 38%),
+    radial-gradient(ellipse at 17% 75%, rgb(105 175 50 / 28%), transparent 32%),
+    radial-gradient(ellipse at 83% 75%, rgb(105 175 50 / 28%), transparent 32%);
+  filter: blur(15px);
+  opacity: .95;
+  pointer-events: none;
+}
+
+/* Layer 2: cream panel + wood/gold rim. It is deliberately inset and rounded so
+   no rectangular image boundary is visible against the blurred game scene. */
+.modal.result-art-ready[data-result="win"] .modal-card::before {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  left: 20px;
+  right: 20px;
+  top: 51px;
+  bottom: 0;
+  border: 5px solid transparent;
+  border-radius: 44px 44px 39px 39px / 39px 39px 45px 45px;
+  background:
+    radial-gradient(circle at 50% 21%, rgb(255 255 255 / 95%) 0 6%, transparent 31%) padding-box,
+    radial-gradient(circle at 50% 24%, rgb(255 225 103 / 42%), transparent 31%) padding-box,
+    linear-gradient(180deg, #fff9d9 0%, #fff4c8 59%, #ffe9ab 100%) padding-box,
+    linear-gradient(180deg, #d58c36 0%, #f6cf6b 18%, #c47a2d 58%, #8f5428 100%) border-box;
+  box-shadow:
+    inset 0 0 0 2px rgb(255 255 255 / 72%),
+    inset 0 -8px 0 rgb(205 147 57 / 18%),
+    0 8px 0 rgb(92 116 54 / 72%),
+    0 24px 44px rgb(18 40 13 / 42%);
+  pointer-events: none;
+}
+
+/* Shared transparent-atlas sprite behavior. */
 .modal.result-art-ready[data-result="win"] .result-kicker,
 .modal.result-art-ready[data-result="win"] .result-hero,
 .modal.result-art-ready[data-result="win"] .result-title-ribbon,
 .modal.result-art-ready[data-result="win"] .result-subtitle,
-.modal.result-art-ready[data-result="win"] .result-foliage {
+.modal.result-art-ready[data-result="win"] .primary-button,
+.modal.result-art-ready[data-result="win"] .secondary-button,
+.modal.result-art-ready[data-result="win"] .result-stat::before {
+  background-image: var(--result-atlas);
+  background-repeat: no-repeat;
+}
+
+/* Layer 3A: wooden "关卡结算" title plaque. */
+.modal.result-art-ready[data-result="win"] .result-kicker {
+  position: absolute;
+  z-index: 9;
+  top: -12px;
+  left: 50%;
+  width: 360px;
+  height: 97px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 0;
+  background-size: 476px 697px;
+  background-position: -37px -9px;
+  box-shadow: none;
+  color: transparent;
+  font-size: 0;
+  text-shadow: none;
+  pointer-events: none;
+}
+
+.modal.result-art-ready[data-result="win"] .result-kicker::before,
+.modal.result-art-ready[data-result="win"] .result-kicker::after {
+  content: none;
+}
+
+/* Layer 3B: cat medal. */
+.modal.result-art-ready[data-result="win"] .result-hero {
+  position: absolute;
+  z-index: 6;
+  top: 77px;
+  left: 50%;
+  width: 184px;
+  height: 150px;
+  margin: 0;
+  display: block;
+  transform: translateX(-50%);
+  background-size: 451px 660px;
+  background-position: -132px -125px;
+  filter: drop-shadow(0 6px 6px rgb(137 79 21 / 17%));
+  pointer-events: none;
+}
+
+.modal.result-art-ready[data-result="win"] .result-hero::before,
+.modal.result-art-ready[data-result="win"] .result-icon-wrap,
+.modal.result-art-ready[data-result="win"] .result-crown,
+.modal.result-art-ready[data-result="win"] .hero-sparkle {
   display: none !important;
 }
 
-/* Labels/icons are baked into the HD artwork. Only live values stay as DOM text. */
-.modal.result-art-ready[data-result="win"] .result-grid {
+/* Layer 3C: red victory ribbon. */
+.modal.result-art-ready[data-result="win"] .result-title-ribbon {
   position: absolute;
   z-index: 8;
-  top: 466px;
+  top: 211px;
+  left: 50%;
+  width: 382px;
+  height: 100px;
+  margin: 0;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 0;
+  background-size: 439px 642px;
+  background-position: -28px -270px;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.modal.result-art-ready[data-result="win"] .result-title-ribbon::before,
+.modal.result-art-ready[data-result="win"] .result-title-ribbon::after {
+  content: none;
+}
+
+.modal.result-art-ready[data-result="win"] .result-title-ribbon h1 {
+  visibility: hidden;
+}
+
+/* Layer 3D: safety subtitle plaque. */
+.modal.result-art-ready[data-result="win"] .result-subtitle {
+  position: absolute;
+  z-index: 7;
+  top: 306px;
+  left: 50%;
+  width: 303px;
+  height: 50px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: block;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 0;
+  background-size: 481px 705px;
+  background-position: -82px -409px;
+  box-shadow: none;
+  color: transparent;
+  font-size: 0;
+  pointer-events: none;
+}
+
+.modal.result-art-ready[data-result="win"] .result-subtitle > * {
+  visibility: hidden;
+}
+
+/* Layer 4: live stat cards + independent icon sprites. */
+.modal.result-art-ready[data-result="win"] .result-grid {
+  position: absolute;
+  z-index: 10;
+  top: 363px;
   left: 31px;
   width: 333px;
-  height: 34px;
+  height: 120px;
   margin: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 9px;
   pointer-events: none;
 }
 
@@ -885,49 +1044,102 @@ button { font: inherit; }
   position: relative;
   min-width: 0;
   min-height: 0;
-  width: auto;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  height: 120px;
+  padding: 56px 5px 8px;
+  border: 2px solid #e9c56a;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 50% 0%, rgb(255 255 255 / 95%), transparent 42%),
+    linear-gradient(180deg, rgb(255 255 255 / 92%), rgb(255 246 210 / 88%));
+  box-shadow:
+    inset 0 -4px 0 rgb(199 143 50 / 12%),
+    0 4px 0 rgb(169 123 45 / 13%);
 }
 
-.modal.result-art-ready[data-result="win"] .result-stat::before,
+.modal.result-art-ready[data-result="win"] .result-stat::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 14px;
+  border: 1px solid rgb(255 223 129 / 55%);
+  pointer-events: none;
+}
+
+.modal.result-art-ready[data-result="win"] .result-stat::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 7px;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 3px 2px rgb(112 58 25 / 17%));
+}
+
+.modal.result-art-ready[data-result="win"] .result-stat[data-icon="target"]::before {
+  width: 46px;
+  height: 45px;
+  background-size: 449px 657px;
+  background-position: -57px -438px;
+}
+
+.modal.result-art-ready[data-result="win"] .result-stat[data-icon="combo"]::before {
+  top: 3px;
+  width: 46px;
+  height: 55px;
+  background-size: 501px 734px;
+  background-position: -225px -489px;
+}
+
+.modal.result-art-ready[data-result="win"] .result-stat[data-icon="life"]::before {
+  top: 9px;
+  width: 46px;
+  height: 41px;
+  background-size: 466px 683px;
+  background-position: -360px -455px;
+}
+
+.modal.result-art-ready[data-result="win"] .result-stat span,
+.modal.result-art-ready[data-result="win"] .result-stat strong {
+  position: relative;
+  z-index: 3;
+  display: block;
+}
+
 .modal.result-art-ready[data-result="win"] .result-stat span {
-  display: none;
+  margin: 0 0 2px;
+  color: #6d4626;
+  font-size: 11px;
+  line-height: 1.15;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .modal.result-art-ready[data-result="win"] .result-stat strong {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
   color: #ef4b22;
-  font-size: 27px;
+  font-size: 28px;
   line-height: 1;
   font-weight: 1000;
-  text-align: center;
   letter-spacing: -.02em;
   text-shadow:
     0 2px 0 #fff0c2,
     0 0 1px rgb(119 44 13 / 35%);
 }
 
-/* Real buttons remain above the baked artwork as invisible hit targets. */
-.modal.result-art-ready[data-result="win"] .primary-button,
-.modal.result-art-ready[data-result="win"] .secondary-button {
+/* Layer 5: visible art buttons. They remain real buttons, so no invisible overlay drift. */
+.modal.result-art-ready[data-result="win"] .primary-button {
   position: absolute;
   z-index: 12;
-  left: 25px;
-  width: 345px;
+  top: 500px;
+  left: 50%;
+  width: 334px;
+  height: 76px;
   margin: 0;
   padding: 0;
+  transform: translateX(-50%);
   border: 0;
-  border-radius: 28px;
-  background: transparent;
+  border-radius: 38px;
+  background-size: 510px 747px;
+  background-position: -72px -563px;
   box-shadow: none;
   color: transparent;
   font-size: 0;
@@ -936,32 +1148,93 @@ button { font: inherit; }
   -webkit-tap-highlight-color: transparent;
 }
 
-.modal.result-art-ready[data-result="win"] .primary-button {
-  top: 507px;
-  height: 91px;
-}
-
 .modal.result-art-ready[data-result="win"] .secondary-button {
-  top: 598px;
-  height: 64px;
+  position: absolute;
+  z-index: 12;
+  top: 585px;
+  left: 50%;
+  width: 300px;
+  height: 61px;
+  margin: 0;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 31px;
+  background-size: 497px 728px;
+  background-position: -90px -643px;
+  box-shadow: none;
+  color: transparent;
+  font-size: 0;
+  text-shadow: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .modal.result-art-ready[data-result="win"] .primary-button::before,
 .modal.result-art-ready[data-result="win"] .primary-button::after,
 .modal.result-art-ready[data-result="win"] .secondary-button::before {
-  display: none;
+  content: none;
 }
 
 .modal.result-art-ready[data-result="win"] .primary-button:active,
 .modal.result-art-ready[data-result="win"] .secondary-button:active {
-  transform: translateY(2px) scale(.99);
-  box-shadow: none;
+  transform: translateX(-50%) translateY(3px) scale(.99);
+  filter: brightness(.97);
 }
 
 .modal.result-art-ready[data-result="win"] .primary-button:focus-visible,
 .modal.result-art-ready[data-result="win"] .secondary-button:focus-visible {
-  outline: 3px solid rgb(255 248 177 / 92%);
-  outline-offset: -6px;
+  outline: 3px solid rgb(255 248 177 / 95%);
+  outline-offset: 2px;
+}
+
+/* Layer 6: decorative foliage deliberately escapes the panel silhouette. */
+.modal.result-art-ready[data-result="win"] .result-foliage {
+  display: block;
+  position: absolute;
+  z-index: 11;
+  bottom: -9px;
+  width: 88px;
+  height: 73px;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 3px rgb(47 87 28 / 18%));
+}
+
+.modal.result-art-ready[data-result="win"] .result-foliage-left {
+  left: -4px;
+  transform: rotate(-5deg);
+}
+
+.modal.result-art-ready[data-result="win"] .result-foliage-right {
+  right: -4px;
+  transform: scaleX(-1) rotate(-5deg);
+}
+
+.modal.result-art-ready[data-result="win"] .result-foliage::before,
+.modal.result-art-ready[data-result="win"] .result-foliage::after {
+  content: "";
+  position: absolute;
+  border-radius: 80% 10% 80% 10%;
+  background: linear-gradient(135deg, #a8e64d 0%, #65bd35 52%, #368b2c 100%);
+  box-shadow:
+    33px 18px 0 -3px #74c73b,
+    58px 34px 0 -6px #4d9c2f;
+}
+
+.modal.result-art-ready[data-result="win"] .result-foliage::before {
+  left: 4px;
+  bottom: 14px;
+  width: 42px;
+  height: 25px;
+  transform: rotate(-19deg);
+}
+
+.modal.result-art-ready[data-result="win"] .result-foliage::after {
+  left: 29px;
+  bottom: 4px;
+  width: 35px;
+  height: 22px;
+  transform: rotate(13deg);
 }
 
 @media (max-width: 430px) {
