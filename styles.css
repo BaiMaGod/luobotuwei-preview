@@ -831,9 +831,10 @@ button { font: inherit; }
 }
 
 
-/* Verified full result-screen artwork.
-   This block only activates after main.js confirms the WebP loaded successfully.
-   If the asset ever fails, the original CSS result screen remains visible as a fallback. */
+/* High-DPI result-screen artwork.
+   Source artwork is 700×1178 and is displayed at the exact same aspect ratio.
+   This avoids the previous 395×683 vertical stretch and keeps high-DPI screens sharper.
+   It only activates after main.js confirms the WebP loaded; otherwise the CSS fallback remains. */
 .modal.result-art-ready[data-result="win"] .result-confetti {
   display: none;
 }
@@ -841,17 +842,18 @@ button { font: inherit; }
 .modal.result-art-ready[data-result="win"] .modal-card {
   position: relative;
   width: 395px;
-  height: 683px;
+  height: 665px;
   max-width: none;
   padding: 0;
   border: 0;
   border-radius: 0;
   color: #57351f;
-  background: transparent url("./assets/result-ui-full.webp?v=result-fullfix-20261005-1601") center / 395px 683px no-repeat;
+  background: transparent url("./assets/result-ui-hd.webp?v=result-hd-20261005-1718") center / 395px 665px no-repeat;
   box-shadow: none;
   overflow: visible;
   isolation: isolate;
   transform-origin: center center;
+  image-rendering: auto;
 }
 
 .modal.result-art-ready[data-result="win"] .modal-card::before,
@@ -864,19 +866,19 @@ button { font: inherit; }
   display: none !important;
 }
 
-/* The generated artwork already contains the three stat-card shells and icons.
-   Only the live labels/numbers are drawn by HTML so every run remains dynamic. */
+/* Labels/icons are baked into the HD artwork. Only live values stay as DOM text. */
 .modal.result-art-ready[data-result="win"] .result-grid {
   position: absolute;
   z-index: 8;
-  top: 394px;
-  left: 30px;
-  width: 335px;
-  height: 126px;
+  top: 452px;
+  left: 31px;
+  width: 333px;
+  height: 34px;
   margin: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
+  pointer-events: none;
 }
 
 .modal.result-art-ready[data-result="win"] .result-stat {
@@ -884,7 +886,7 @@ button { font: inherit; }
   min-width: 0;
   min-height: 0;
   width: auto;
-  height: 126px;
+  height: 34px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -892,39 +894,29 @@ button { font: inherit; }
   box-shadow: none;
 }
 
-.modal.result-art-ready[data-result="win"] .result-stat::before {
-  display: none;
-}
-
+.modal.result-art-ready[data-result="win"] .result-stat::before,
 .modal.result-art-ready[data-result="win"] .result-stat span {
-  position: absolute;
-  top: 66px;
-  left: 0;
-  width: 100%;
-  margin: 0;
-  color: #704721;
-  font-size: 12px;
-  line-height: 1.1;
-  font-weight: 900;
-  white-space: nowrap;
-  text-align: center;
-  text-shadow: 0 1px 0 rgb(255 250 219 / 92%);
+  display: none;
 }
 
 .modal.result-art-ready[data-result="win"] .result-stat strong {
   position: absolute;
-  top: 84px;
-  left: 0;
-  width: 100%;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   color: #ef4b22;
   font-size: 28px;
   line-height: 1;
   font-weight: 1000;
   text-align: center;
-  text-shadow: 0 2px 0 #fff0c2;
+  letter-spacing: -.02em;
+  text-shadow:
+    0 2px 0 #fff0c2,
+    0 0 1px rgb(119 44 13 / 35%);
 }
 
-/* Keep real buttons for input/accessibility, but the visible button artwork is in the WebP. */
+/* Real buttons remain above the baked artwork as invisible hit targets. */
 .modal.result-art-ready[data-result="win"] .primary-button,
 .modal.result-art-ready[data-result="win"] .secondary-button {
   position: absolute;
@@ -945,13 +937,13 @@ button { font: inherit; }
 }
 
 .modal.result-art-ready[data-result="win"] .primary-button {
-  top: 528px;
-  height: 80px;
+  top: 507px;
+  height: 91px;
 }
 
 .modal.result-art-ready[data-result="win"] .secondary-button {
-  top: 612px;
-  height: 68px;
+  top: 598px;
+  height: 64px;
 }
 
 .modal.result-art-ready[data-result="win"] .primary-button::before,
