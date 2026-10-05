@@ -27,7 +27,7 @@
     bombCount: document.getElementById('bombCount'),
   };
 
-  const RESULT_ART_URL = './assets/result-ui-full.webp?v=result-fullfix-20261005-1601';
+  const RESULT_ART_URL = './assets/result-ui-hd.webp?v=result-hd-20261005-1718';
   const resultArtImage = new Image();
   resultArtImage.onload = () => {
     DOM.resultModal.classList.add('result-art-ready');
