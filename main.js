@@ -627,20 +627,12 @@
     DOM.levelLabel.textContent = `第 ${level} 关`;
     DOM.waveLabel.textContent = `怪物 0 / ${totalEnemies}`;
     DOM.resultModal.classList.add('hidden');
+    DOM.resultModal.dataset.result = '';
     DOM.floatingMessage.classList.remove('show');
     DOM.floatingMessage.textContent = '';
-    DOM.tutorial.classList.remove('hidden');
-
-    if (level === 1) {
-      DOM.tutorialText.textContent = '看尖端，解开阻挡。最后一颗会变成金色终结椒，碰到怪物直接秒杀！';
-      tutorialDismissTimer = 7;
-    } else if (level === 2) {
-      DOM.tutorialText.textContent = '怪物放慢了，先观察解锁顺序。清到最后一颗，金色终结椒负责收尾！';
-      tutorialDismissTimer = 4;
-    } else {
-      DOM.tutorialText.textContent = `第 ${level} 关：清空辣椒、守住小猫。最后一颗终结椒连 Boss 也能秒杀！`;
-      tutorialDismissTimer = 4;
-    }
+    DOM.tutorial.classList.add('hidden');
+    DOM.tutorialText.textContent = '';
+    tutorialDismissTimer = 0;
 
     updateHUD();
     updateToolButtons();
@@ -984,11 +976,10 @@
     for (const fx of effects) {
       fx.life -= dt;
       if (fx.kind === 'fire') {
-        // Follow a living enemy's feet; a defeated enemy leaves a short flame
-        // at the contact point. This is visual feedback, not damage over time.
         if (fx.enemy.active) {
-          fx.x = fx.enemy.x;
-          fx.y = fx.enemy.y + fx.enemy.radius * 0.8;
+          const foot = enemyFootPoint(fx.enemy);
+          fx.x = foot.x;
+          fx.y = foot.y;
         }
         continue;
       }
@@ -1043,9 +1034,10 @@
     catAction = null;
     catPosition = { ...CAT_HOME };
     projectiles = projectiles.filter(p => p.mode !== 'waitingKick');
+    DOM.resultModal.dataset.result = won ? 'win' : 'loss';
     DOM.resultIcon.textContent = won ? '😺' : '😿';
     DOM.resultTitle.textContent = won ? '守住了！' : '差一点！';
-    DOM.resultSubtitle.textContent = won ? '棋盘清空，小猫守住了！' : '观察阻挡顺序，解锁最后一颗终结椒';
+    DOM.resultSubtitle.textContent = won ? '怪潮退散，果园安全！' : '再看一眼辣椒方向，下一次一定能守住。';
     const accuracy = shots > 0 ? Math.round(successfulShots / shots * 100) : 0;
     DOM.accuracyValue.textContent = `${accuracy}%`;
     DOM.bestComboValue.textContent = String(bestCombo);
@@ -1185,14 +1177,29 @@
     }
   }
 
+  function enemyFootPoint(enemy) {
+    const size = enemyVisualSize(enemy.type);
+    const yOffset = enemyVisualYOffset(enemy.type);
+    const ratio = enemy.type === 'fast' ? 0.30
+      : enemy.type === 'boss' ? 0.34
+      : enemy.type === 'tank' ? 0.34
+      : 0.36;
+    return { x: enemy.x, y: enemy.y + yOffset + size * ratio };
+  }
+
   function createHitFire(enemy, finisher = false) {
     const existing = effects.find(fx => fx.kind === 'fire' && fx.enemy === enemy);
-    const fire = existing || { kind: 'fire', enemy };
+    const fire = existing || { kind: 'fire', enemy, seed: Math.random() * 1000 };
+    const foot = enemyFootPoint(enemy);
     fire.finisher = Boolean(finisher || fire.finisher);
-    fire.life = fire.maxLife = fire.finisher ? 0.8 : 0.6;
-    fire.x = enemy.x;
-    fire.y = enemy.y + enemy.radius * 0.8;
-    fire.width = (enemy.type === 'boss' ? 45 : 32) * (fire.finisher ? 1.3 : 1);
+    fire.type = enemy.type;
+    fire.life = fire.maxLife = fire.finisher ? 0.72 : 0.52;
+    fire.x = foot.x;
+    fire.y = foot.y;
+    const baseWidth = enemy.type === 'boss' ? 48 : enemy.type === 'tank' ? 38 : enemy.type === 'fast' ? 28 : 34;
+    const baseHeight = enemy.type === 'boss' ? 32 : enemy.type === 'tank' ? 27 : enemy.type === 'fast' ? 22 : 25;
+    fire.width = baseWidth * (fire.finisher ? 1.18 : 1);
+    fire.height = baseHeight * (fire.finisher ? 1.22 : 1);
     if (!existing) effects.push(fire);
   }
 
@@ -1583,48 +1590,72 @@
   }
 
   function drawHitFire(g, fx, now) {
+    const lifeAlpha = clamp(fx.life / 0.18, 0, 1);
+    const pulse = 0.94 + Math.sin(now * 0.012 + fx.seed) * 0.06;
     g.save();
-    g.globalAlpha = clamp(fx.life / 0.22, 0, 1);
     g.translate(fx.x, fx.y);
-    const glow = g.createRadialGradient(0, -8, 2, 0, -8, fx.width * 1.7);
-    glow.addColorStop(0, fx.finisher ? '#fff6aabb' : '#ffb135aa');
-    glow.addColorStop(1, '#ff721000');
-    g.fillStyle = glow;
-    g.fillRect(-fx.width * 1.7, -fx.width * 1.9, fx.width * 3.4, fx.width * 2.8);
-    g.fillStyle = fx.finisher ? '#ffd25188' : '#f5663488';
-    g.beginPath(); g.ellipse(0, 2, fx.width, 9, 0, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = lifeAlpha;
 
-    for (let i = -2; i <= 2; i++) {
-      const phase = now * 0.018 + i * 2.3;
-      const height = (fx.finisher ? 64 : 43) * (1 - Math.abs(i) * 0.14) + Math.sin(phase) * 7;
-      const width = fx.width * 0.58;
-      const sway = Math.sin(phase * 0.7) * 8;
+    const groundGlow = g.createRadialGradient(0, 1, 2, 0, 1, fx.width * 1.45);
+    groundGlow.addColorStop(0, fx.finisher ? '#fff5a6cc' : '#ffc24daa');
+    groundGlow.addColorStop(0.45, fx.finisher ? '#ff9d34a8' : '#ff6b2f88');
+    groundGlow.addColorStop(1, '#7f210000');
+    g.fillStyle = groundGlow;
+    g.beginPath();
+    g.ellipse(0, 2, fx.width * 1.35, 8 + fx.width * 0.05, 0, 0, Math.PI * 2);
+    g.fill();
+
+    g.globalAlpha = lifeAlpha * 0.48;
+    g.strokeStyle = fx.finisher ? '#ffb52f' : '#b83f25';
+    g.lineWidth = 2.5;
+    g.beginPath();
+    g.ellipse(0, 3, fx.width * 0.98, 5.5, 0, 0, Math.PI * 2);
+    g.stroke();
+
+    const lobes = fx.finisher ? 5 : 4;
+    for (let i = 0; i < lobes; i++) {
+      const u = lobes === 1 ? 0 : i / (lobes - 1);
+      const x = (u - 0.5) * fx.width * 1.55;
+      const centerWeight = 1 - Math.abs(u - 0.5) * 0.72;
+      const phase = now * 0.015 + fx.seed + i * 1.73;
+      const h = fx.height * centerWeight * pulse + Math.sin(phase) * 2.4;
+      const w = fx.width * (0.27 + centerWeight * 0.07);
+      const sway = Math.sin(phase * 0.82) * 3.2;
       g.save();
-      g.translate(i * fx.width * 0.37, Math.abs(i) * -2);
-      const flame = g.createLinearGradient(0, 0, 0, -height);
-      flame.addColorStop(0, fx.finisher ? '#ff942e' : '#ef4929');
-      flame.addColorStop(0.45, '#ffb72f');
-      flame.addColorStop(1, '#fff1a3');
+      g.translate(x, 0);
+      g.globalAlpha = lifeAlpha;
+      g.shadowBlur = fx.finisher ? 12 : 8;
+      g.shadowColor = fx.finisher ? '#ffd24a' : '#ff6a2b';
+      const flame = g.createLinearGradient(0, 2, 0, -h);
+      flame.addColorStop(0, '#e83b20');
+      flame.addColorStop(0.42, '#ff7a24');
+      flame.addColorStop(0.72, '#ffc33e');
+      flame.addColorStop(1, '#fff2a4');
       g.fillStyle = flame;
       g.beginPath();
-      g.moveTo(-width / 2, 0);
-      g.bezierCurveTo(-width, -height * 0.45, sway - width * 0.1, -height * 0.6, sway, -height);
-      g.bezierCurveTo(sway + width * 0.2, -height * 0.6, width, -height * 0.3, width / 2, 0);
-      g.closePath(); g.fill();
-      g.fillStyle = '#fff3aa';
+      g.moveTo(-w * 0.56, 2);
+      g.bezierCurveTo(-w * 0.95, -h * 0.24, -w * 0.15 + sway, -h * 0.58, sway, -h);
+      g.bezierCurveTo(w * 0.48 + sway, -h * 0.62, w * 0.92, -h * 0.22, w * 0.56, 2);
+      g.closePath();
+      g.fill();
+      g.shadowBlur = 0;
+      g.fillStyle = '#fff3a6';
+      g.globalAlpha = lifeAlpha * 0.88;
       g.beginPath();
-      g.moveTo(-width * 0.23, 0);
-      g.quadraticCurveTo(-width * 0.4, -height * 0.25, 2, -height * 0.52);
-      g.quadraticCurveTo(width * 0.45, -height * 0.16, width * 0.23, 0);
-      g.closePath(); g.fill();
+      g.moveTo(-w * 0.22, 1);
+      g.quadraticCurveTo(-w * 0.28, -h * 0.18, sway * 0.25, -h * 0.52);
+      g.quadraticCurveTo(w * 0.26, -h * 0.18, w * 0.22, 1);
+      g.closePath();
+      g.fill();
       g.restore();
     }
+
     for (let i = 0; i < 3; i++) {
-      const rise = ((now * 0.0018 + i * 0.33) % 1);
-      g.fillStyle = '#ffe99a';
-      g.globalAlpha = (1 - rise) * clamp(fx.life / 0.22, 0, 1);
+      const rise = (now * 0.00145 + fx.seed * 0.01 + i * 0.31) % 1;
+      g.globalAlpha = (1 - rise) * lifeAlpha * 0.75;
+      g.fillStyle = i === 1 ? '#fff0a2' : '#ff9b31';
       g.beginPath();
-      g.arc(Math.sin(i * 4 + rise * 3) * fx.width * 0.65, -20 - rise * 58, 2.5, 0, Math.PI * 2);
+      g.arc(Math.sin(fx.seed + i * 2.7 + rise * 4) * fx.width * 0.68, -8 - rise * (fx.height + 13), 1.5 + (1 - rise) * 1.1, 0, Math.PI * 2);
       g.fill();
     }
     g.restore();
@@ -1939,16 +1970,16 @@
     level2LayoutSerial++;
 
     // 7x6 全满：42/42 个辣椒，无空位。
-    // 该布局满足：初始可行动数 2、方向熵 > .95、解锁深度 24、
-    // 前 10 步平均可选项 <= 2.5，并保持 11/11/10/10 的方向数量。
+    // 保留地狱关卡约束，同时把横/竖同向连续控制在最多 3 个，
+    // 且不存在 2x2 全同向块，避免一大片同方向导致无脑连点。
     const baseDirections = [
-      ['left', 'left', 'down', 'left', 'down', 'down'],
-      ['up', 'up', 'down', 'up', 'down', 'left'],
+      ['left', 'left', 'down', 'right', 'right', 'down'],
+      ['up', 'up', 'left', 'left', 'down', 'left'],
       ['up', 'left', 'down', 'up', 'right', 'down'],
-      ['up', 'up', 'left', 'up', 'down', 'left'],
-      ['up', 'left', 'right', 'right', 'right', 'down'],
-      ['right', 'up', 'right', 'right', 'right', 'down'],
-      ['up', 'left', 'left', 'right', 'right', 'down'],
+      ['up', 'up', 'left', 'left', 'down', 'left'],
+      ['right', 'right', 'down', 'up', 'right', 'down'],
+      ['up', 'left', 'down', 'right', 'down', 'down'],
+      ['up', 'up', 'right', 'up', 'right', 'right'],
     ];
 
     const variant = level2LayoutSerial % 4;
@@ -1980,6 +2011,31 @@
     return layout;
   }
 
+  function directionPlacementPenalty(occupied, row, col, dir) {
+    let score = 0;
+    const getDir = (r, c) => occupied.get(cellKey(r, c))?.dir || null;
+    const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for (const [dr, dc] of neighbors) {
+      if (getDir(row + dr, col + dc) === dir) score += 3;
+      if (getDir(row + dr, col + dc) === dir && getDir(row + dr * 2, col + dc * 2) === dir) score += 12;
+    }
+    for (const top of [row - 1, row]) {
+      for (const left of [col - 1, col]) {
+        if (top < 0 || left < 0) continue;
+        const cells = [[top, left], [top + 1, left], [top, left + 1], [top + 1, left + 1]];
+        let same = 0;
+        for (const [r, c] of cells) {
+          if (r === row && c === col) same++;
+          else if (getDir(r, c) === dir) same++;
+        }
+        if (same >= 3) score += (same - 2) * 6;
+      }
+    }
+    let dirCount = 0;
+    for (const item of occupied.values()) if (item.dir === dir) dirCount++;
+    return score + dirCount * 0.08;
+  }
+
   function generateSolvableLayout(rows, cols, count, seed) {
     const random = mulberry32(seed);
     const occupied = new Map();
@@ -2008,7 +2064,10 @@
         cells.splice(cells.indexOf(cell), 1);
         continue;
       }
-      const dir = candidates[Math.floor(random() * candidates.length)];
+      const scored = candidates.map(dir => ({ dir, score: directionPlacementPenalty(occupied, cell.r, cell.c, dir) }));
+      const bestScore = Math.min(...scored.map(item => item.score));
+      const bestDirections = scored.filter(item => Math.abs(item.score - bestScore) < 1e-9);
+      const dir = bestDirections[Math.floor(random() * bestDirections.length)].dir;
       const item = { row: cell.r, col: cell.c, dir, type: level >= 4 && result.length % 8 === 5 ? 'pierce' : 'normal' };
       occupied.set(cellKey(cell.r, cell.c), item);
       result.push(item);
