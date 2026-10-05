@@ -831,21 +831,10 @@ button { font: inherit; }
 }
 
 
-/* Layered result-screen artwork.
-   Major art elements come from a transparent sprite atlas and are positioned as
-   separate DOM layers over a CSS panel. This removes the old rectangular-poster edge. */
-.modal.result-art-ready[data-result="win"] {
-  --result-atlas: url("./assets/result-layer-atlas.webp?v=result-layers-20261005-1850");
-}
-
-.modal.result-art-ready[data-result="win"] .result-confetti {
-  display: block;
-  z-index: 1;
-  opacity: .74;
-  filter: drop-shadow(0 2px 3px rgb(88 55 16 / 20%));
-}
-
-.modal.result-art-ready[data-result="win"] .modal-card {
+/* Result screen v3: true layered DOM + independent SVG art assets.
+   No full-screen atlas and no poster-like rectangular bitmap. Both win/loss use this layout. */
+.modal[data-result="win"] .modal-card,
+.modal[data-result="loss"] .modal-card {
   position: relative;
   z-index: 3;
   width: 395px;
@@ -862,37 +851,34 @@ button { font: inherit; }
   transform-origin: center center;
 }
 
-/* Layer 1: soft floating shadow / ambient glow. */
-.modal.result-art-ready[data-result="win"] .modal-card::after {
+.modal[data-result="win"] .modal-card::after,
+.modal[data-result="loss"] .modal-card::after {
   content: "";
   position: absolute;
   z-index: -3;
-  left: 14px;
-  right: 14px;
-  top: 49px;
-  bottom: -4px;
+  left: 17px;
+  right: 17px;
+  top: 51px;
+  bottom: -2px;
   width: auto;
   height: auto;
   transform: none;
-  border-radius: 48px 48px 42px 42px / 38px 38px 48px 48px;
+  border-radius: 48px;
   background:
-    radial-gradient(ellipse at 50% 12%, rgb(255 228 100 / 40%), transparent 38%),
-    radial-gradient(ellipse at 17% 75%, rgb(105 175 50 / 28%), transparent 32%),
-    radial-gradient(ellipse at 83% 75%, rgb(105 175 50 / 28%), transparent 32%);
+    radial-gradient(ellipse at 50% 10%, rgb(255 230 126 / 38%), transparent 37%),
+    radial-gradient(ellipse at 50% 95%, rgb(89 147 45 / 24%), transparent 52%);
   filter: blur(15px);
-  opacity: .95;
-  pointer-events: none;
+  opacity: .92;
 }
 
-/* Layer 2: cream panel + wood/gold rim. It is deliberately inset and rounded so
-   no rectangular image boundary is visible against the blurred game scene. */
-.modal.result-art-ready[data-result="win"] .modal-card::before {
+.modal[data-result="win"] .modal-card::before,
+.modal[data-result="loss"] .modal-card::before {
   content: "";
   position: absolute;
   z-index: -2;
   left: 20px;
   right: 20px;
-  top: 51px;
+  top: 53px;
   bottom: 0;
   width: auto;
   height: auto;
@@ -901,143 +887,198 @@ button { font: inherit; }
   border: 5px solid transparent;
   border-radius: 44px 44px 39px 39px / 39px 39px 45px 45px;
   background:
-    radial-gradient(circle at 50% 21%, rgb(255 255 255 / 95%) 0 6%, transparent 31%) padding-box,
-    radial-gradient(circle at 50% 24%, rgb(255 225 103 / 42%), transparent 31%) padding-box,
-    linear-gradient(180deg, #fff9d9 0%, #fff4c8 59%, #ffe9ab 100%) padding-box,
-    linear-gradient(180deg, #d58c36 0%, #f6cf6b 18%, #c47a2d 58%, #8f5428 100%) border-box;
+    radial-gradient(circle at 50% 19%, rgb(255 255 255 / 95%) 0 6%, transparent 31%) padding-box,
+    radial-gradient(circle at 50% 22%, rgb(255 226 102 / 30%), transparent 35%) padding-box,
+    linear-gradient(180deg, #fff9dc 0%, #fff3c8 61%, #ffe9ae 100%) padding-box,
+    linear-gradient(180deg, #d58837 0%, #f2ca68 18%, #c47a2f 62%, #8c5227 100%) border-box;
   box-shadow:
     inset 0 0 0 2px rgb(255 255 255 / 72%),
-    inset 0 -8px 0 rgb(205 147 57 / 18%),
-    0 8px 0 rgb(92 116 54 / 72%),
+    inset 0 -8px 0 rgb(205 147 57 / 16%),
+    0 8px 0 rgb(91 113 52 / 72%),
     0 24px 44px rgb(18 40 13 / 42%);
-  pointer-events: none;
 }
 
-/* Shared transparent-atlas sprite behavior. */
-.modal.result-art-ready[data-result="win"] .result-kicker,
-.modal.result-art-ready[data-result="win"] .result-hero,
-.modal.result-art-ready[data-result="win"] .result-title-ribbon,
-.modal.result-art-ready[data-result="win"] .result-subtitle,
-.modal.result-art-ready[data-result="win"] .primary-button,
-.modal.result-art-ready[data-result="win"] .secondary-button,
-.modal.result-art-ready[data-result="win"] .result-stat::before {
-  background-color: transparent;
-  background-image: var(--result-atlas);
-  background-repeat: no-repeat;
-}
-
-/* Layer 3A: wooden "关卡结算" title plaque. */
-.modal.result-art-ready[data-result="win"] .result-kicker {
+/* independent title plaque asset */
+.modal[data-result="win"] .result-kicker,
+.modal[data-result="loss"] .result-kicker {
   position: absolute;
-  z-index: 9;
+  z-index: 12;
   top: -12px;
   left: 50%;
   width: 360px;
-  height: 97px;
+  height: 95px;
   min-height: 0;
-  padding: 0;
   margin: 0;
+  padding: 0 92px;
+  display: grid;
+  place-items: center;
   transform: translateX(-50%);
   border: 0;
   border-radius: 0;
-  background-size: 476px 697px;
-  background-position: -37px -9px;
+  background: transparent url("./assets/result-title-plaque.svg?v=result-v3-20261005-2036") center / 360px 95px no-repeat;
   box-shadow: none;
-  color: transparent;
-  font-size: 0;
-  text-shadow: none;
+  color: #fff4ca;
+  font-size: 27px;
+  line-height: 1;
+  font-weight: 1000;
+  letter-spacing: .06em;
+  text-shadow:
+    -1px -1px 0 #7d351c,
+    1px -1px 0 #7d351c,
+    -1px 1px 0 #7d351c,
+    1px 1px 0 #7d351c,
+    0 4px 0 #713018;
   pointer-events: none;
 }
 
-.modal.result-art-ready[data-result="win"] .result-kicker::before,
-.modal.result-art-ready[data-result="win"] .result-kicker::after {
+.modal[data-result="win"] .result-kicker::before,
+.modal[data-result="win"] .result-kicker::after,
+.modal[data-result="loss"] .result-kicker::before,
+.modal[data-result="loss"] .result-kicker::after {
   content: none;
 }
 
-/* Layer 3B: cat medal. */
-.modal.result-art-ready[data-result="win"] .result-hero {
+/* independent hero layer; uses the game's verified cat sprite, not the broken atlas */
+.modal[data-result="win"] .result-hero,
+.modal[data-result="loss"] .result-hero {
   position: absolute;
   z-index: 6;
   top: 77px;
   left: 50%;
-  width: 184px;
+  width: 174px;
   height: 150px;
   margin: 0;
-  display: block;
+  display: grid;
+  place-items: center;
   transform: translateX(-50%);
-  background-size: 451px 660px;
-  background-position: -132px -125px;
-  filter: drop-shadow(0 6px 6px rgb(137 79 21 / 17%));
-  pointer-events: none;
 }
 
-.modal.result-art-ready[data-result="win"] .result-hero::before,
-.modal.result-art-ready[data-result="win"] .result-icon-wrap,
-.modal.result-art-ready[data-result="win"] .result-crown,
-.modal.result-art-ready[data-result="win"] .hero-sparkle {
-  display: none !important;
+.modal[data-result="win"] .result-icon-wrap,
+.modal[data-result="loss"] .result-icon-wrap {
+  width: 136px;
+  height: 136px;
+  border-width: 7px;
+  box-shadow:
+    inset 0 -6px 0 #cf7724,
+    inset 0 3px 0 rgb(255 255 255 / 62%),
+    0 6px 0 rgb(130 76 29 / 22%),
+    0 13px 26px rgb(125 79 26 / 20%);
 }
 
-/* Layer 3C: red victory ribbon. */
-.modal.result-art-ready[data-result="win"] .result-title-ribbon {
+.modal[data-result="win"] .result-icon,
+.modal[data-result="loss"] .result-icon {
+  width: 112px;
+  height: 112px;
+}
+
+.modal[data-result="loss"] .result-crown {
+  display: none;
+}
+
+.modal[data-result="loss"] .result-icon-wrap {
+  filter: saturate(.82) brightness(.98);
+}
+
+/* independent ribbon assets */
+.modal[data-result="win"] .result-title-ribbon,
+.modal[data-result="loss"] .result-title-ribbon {
   position: absolute;
-  z-index: 8;
-  top: 211px;
+  z-index: 9;
+  top: 213px;
   left: 50%;
   width: 382px;
-  height: 100px;
+  height: 103px;
   margin: 0;
-  padding: 0;
+  padding: 0 32px;
+  display: grid;
+  place-items: center;
   transform: translateX(-50%);
   border: 0;
   border-radius: 0;
-  background-size: 439px 642px;
-  background-position: -28px -270px;
   box-shadow: none;
-  pointer-events: none;
+  background-color: transparent;
+  background-position: center;
+  background-size: 382px 103px;
+  background-repeat: no-repeat;
 }
 
-.modal.result-art-ready[data-result="win"] .result-title-ribbon::before,
-.modal.result-art-ready[data-result="win"] .result-title-ribbon::after {
+.modal[data-result="win"] .result-title-ribbon {
+  background-image: url("./assets/result-ribbon-win.svg?v=result-v3-20261005-2036");
+}
+
+.modal[data-result="loss"] .result-title-ribbon {
+  background-image: url("./assets/result-ribbon-loss.svg?v=result-v3-20261005-2036");
+}
+
+.modal[data-result="win"] .result-title-ribbon::before,
+.modal[data-result="win"] .result-title-ribbon::after,
+.modal[data-result="loss"] .result-title-ribbon::before,
+.modal[data-result="loss"] .result-title-ribbon::after {
   content: none;
 }
 
-.modal.result-art-ready[data-result="win"] .result-title-ribbon h1 {
-  visibility: hidden;
-}
-
-/* Layer 3D: safety subtitle plaque. */
-.modal.result-art-ready[data-result="win"] .result-subtitle {
-  position: absolute;
-  z-index: 7;
-  top: 306px;
-  left: 50%;
-  width: 303px;
-  height: 50px;
-  min-height: 0;
+.modal[data-result="win"] .result-title-ribbon h1,
+.modal[data-result="loss"] .result-title-ribbon h1 {
+  visibility: visible;
   margin: 0;
-  padding: 0;
-  display: block;
+  color: #fff3be;
+  font-size: 49px;
+  line-height: 1;
+  font-weight: 1000;
+  letter-spacing: .01em;
+  text-shadow:
+    -2px -2px 0 #8f2b1a,
+    2px -2px 0 #8f2b1a,
+    -2px 2px 0 #8f2b1a,
+    2px 2px 0 #8f2b1a,
+    0 5px 0 rgb(111 36 22 / 72%);
+}
+
+.modal[data-result="loss"] .result-title-ribbon h1 {
+  font-size: 45px;
+  text-shadow:
+    -2px -2px 0 #7e3d25,
+    2px -2px 0 #7e3d25,
+    -2px 2px 0 #7e3d25,
+    2px 2px 0 #7e3d25,
+    0 5px 0 rgb(85 45 28 / 64%);
+}
+
+/* subtitle is its own DOM layer, so loss/win copy remains dynamic */
+.modal[data-result="win"] .result-subtitle,
+.modal[data-result="loss"] .result-subtitle {
+  position: absolute;
+  z-index: 8;
+  top: 316px;
+  left: 50%;
+  width: 308px;
+  min-height: 44px;
+  margin: 0;
+  padding: 7px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   transform: translateX(-50%);
-  border: 0;
-  border-radius: 0;
-  background-size: 481px 705px;
-  background-position: -82px -409px;
-  box-shadow: none;
-  color: transparent;
-  font-size: 0;
-  pointer-events: none;
+  border: 2px solid #e6cb82;
+  border-radius: 19px;
+  color: #684429;
+  background:
+    linear-gradient(180deg, rgb(255 255 246 / 96%), rgb(fff 246 211 / 94%));
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 75%),
+    0 3px 0 rgb(175 126 50 / 10%);
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 900;
 }
 
-.modal.result-art-ready[data-result="win"] .result-subtitle > * {
-  visibility: hidden;
-}
-
-/* Layer 4: live stat cards + independent icon sprites. */
-.modal.result-art-ready[data-result="win"] .result-grid {
+/* cards remain live DOM, with independent icons */
+.modal[data-result="win"] .result-grid,
+.modal[data-result="loss"] .result-grid {
   position: absolute;
   z-index: 10;
-  top: 363px;
+  top: 373px;
   left: 31px;
   width: 333px;
   height: 120px;
@@ -1045,220 +1086,169 @@ button { font: inherit; }
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 9px;
-  pointer-events: none;
 }
 
-.modal.result-art-ready[data-result="win"] .result-stat {
+.modal[data-result="win"] .result-stat,
+.modal[data-result="loss"] .result-stat {
   position: relative;
   min-width: 0;
   min-height: 0;
   height: 120px;
-  padding: 56px 5px 8px;
+  padding: 53px 5px 8px;
   border: 2px solid #e9c56a;
   border-radius: 20px;
   background:
     radial-gradient(circle at 50% 0%, rgb(255 255 255 / 95%), transparent 42%),
-    linear-gradient(180deg, rgb(255 255 255 / 92%), rgb(255 246 210 / 88%));
+    linear-gradient(180deg, rgb(255 255 255 / 94%), rgb(255 246 210 / 90%));
   box-shadow:
     inset 0 -4px 0 rgb(199 143 50 / 12%),
-    0 4px 0 rgb(169 123 45 / 13%);
+    0 5px 0 rgb(169 123 45 / 13%);
 }
 
-.modal.result-art-ready[data-result="win"] .result-stat::after {
+.modal[data-result="win"] .result-stat::after,
+.modal[data-result="loss"] .result-stat::after {
   content: "";
   position: absolute;
   inset: 5px;
+  border: 1px solid rgb(255 223 129 / 56%);
   border-radius: 14px;
-  border: 1px solid rgb(255 223 129 / 55%);
   pointer-events: none;
 }
 
-.modal.result-art-ready[data-result="win"] .result-stat::before {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  left: 50%;
-  top: 7px;
-  transform: translateX(-50%);
-  filter: drop-shadow(0 3px 2px rgb(112 58 25 / 17%));
+.modal[data-result="win"] .result-stat::before,
+.modal[data-result="loss"] .result-stat::before {
+  top: 8px;
+  font-size: 31px;
+  filter: drop-shadow(0 2px 0 rgb(109 56 25 / 14%));
 }
 
-.modal.result-art-ready[data-result="win"] .result-stat[data-icon="target"]::before {
-  width: 46px;
-  height: 45px;
-  background-size: 449px 657px;
-  background-position: -57px -438px;
-}
-
-.modal.result-art-ready[data-result="win"] .result-stat[data-icon="combo"]::before {
-  top: 3px;
-  width: 46px;
-  height: 55px;
-  background-size: 501px 734px;
-  background-position: -225px -489px;
-}
-
-.modal.result-art-ready[data-result="win"] .result-stat[data-icon="life"]::before {
-  top: 9px;
-  width: 46px;
-  height: 41px;
-  background-size: 466px 683px;
-  background-position: -360px -455px;
-}
-
-.modal.result-art-ready[data-result="win"] .result-stat span,
-.modal.result-art-ready[data-result="win"] .result-stat strong {
-  position: relative;
-  z-index: 3;
-  display: block;
-}
-
-.modal.result-art-ready[data-result="win"] .result-stat span {
+.modal[data-result="win"] .result-stat span,
+.modal[data-result="loss"] .result-stat span {
   margin: 0 0 2px;
   color: #6d4626;
   font-size: 11px;
-  line-height: 1.15;
-  font-weight: 900;
-  white-space: nowrap;
 }
 
-.modal.result-art-ready[data-result="win"] .result-stat strong {
+.modal[data-result="win"] .result-stat strong,
+.modal[data-result="loss"] .result-stat strong {
   color: #ef4b22;
   font-size: 28px;
   line-height: 1;
   font-weight: 1000;
-  letter-spacing: -.02em;
-  text-shadow:
-    0 2px 0 #fff0c2,
-    0 0 1px rgb(119 44 13 / 35%);
+  text-shadow: 0 2px 0 #fff0c2;
 }
 
-/* Layer 5: visible art buttons. They remain real buttons, so no invisible overlay drift. */
-.modal.result-art-ready[data-result="win"] .primary-button {
+/* independent button background assets + live HTML labels */
+.modal[data-result="win"] .primary-button {
   position: absolute;
   z-index: 12;
-  top: 500px;
+  top: 505px;
   left: 50%;
   width: 334px;
   height: 76px;
   margin: 0;
-  padding: 0;
+  padding: 0 56px 0 32px;
   transform: translateX(-50%);
   border: 0;
   border-radius: 38px;
-  background-size: 510px 747px;
-  background-position: -72px -563px;
+  color: #fff7d5;
+  background: transparent url("./assets/result-button-primary.svg?v=result-v3-20261005-2036") center / 334px 76px no-repeat;
   box-shadow: none;
-  color: transparent;
-  font-size: 0;
-  text-shadow: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  font-size: 24px;
+  line-height: 76px;
+  font-weight: 1000;
+  text-shadow: 0 3px 0 rgb(142 46 24 / 42%);
 }
 
-.modal.result-art-ready[data-result="win"] .secondary-button {
+.modal[data-result="win"] .primary-button::before {
+  content: "🐾";
+  left: 25px;
+  opacity: .26;
+}
+
+.modal[data-result="win"] .primary-button::after {
+  content: "›";
+  right: 27px;
+  font-size: 42px;
+}
+
+.modal[data-result="win"] .secondary-button,
+.modal[data-result="loss"] .secondary-button {
   position: absolute;
   z-index: 12;
-  top: 585px;
   left: 50%;
   width: 300px;
   height: 61px;
   margin: 0;
-  padding: 0;
+  padding: 0 18px 0 50px;
   transform: translateX(-50%);
   border: 0;
   border-radius: 31px;
-  background-size: 497px 728px;
-  background-position: -90px -643px;
+  color: #597441;
+  background: transparent url("./assets/result-button-secondary.svg?v=result-v3-20261005-2036") center / 300px 61px no-repeat;
   box-shadow: none;
-  color: transparent;
-  font-size: 0;
-  text-shadow: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  font-size: 17px;
+  line-height: 61px;
+  font-weight: 1000;
 }
 
-.modal.result-art-ready[data-result="win"] .primary-button::before,
-.modal.result-art-ready[data-result="win"] .primary-button::after,
-.modal.result-art-ready[data-result="win"] .secondary-button::before {
-  content: none;
+.modal[data-result="win"] .secondary-button { top: 589px; }
+.modal[data-result="loss"] .secondary-button { top: 520px; }
+
+.modal[data-result="win"] .secondary-button::before,
+.modal[data-result="loss"] .secondary-button::before {
+  content: "↻";
+  left: 32%;
+  font-size: 27px;
 }
 
-.modal.result-art-ready[data-result="win"] .primary-button:active,
-.modal.result-art-ready[data-result="win"] .secondary-button:active {
+.modal[data-result="win"] .primary-button:active,
+.modal[data-result="win"] .secondary-button:active,
+.modal[data-result="loss"] .secondary-button:active {
   transform: translateX(-50%) translateY(3px) scale(.99);
   filter: brightness(.97);
 }
 
-.modal.result-art-ready[data-result="win"] .primary-button:focus-visible,
-.modal.result-art-ready[data-result="win"] .secondary-button:focus-visible {
-  outline: 3px solid rgb(255 248 177 / 95%);
-  outline-offset: 2px;
-}
-
-/* Layer 6: decorative foliage deliberately escapes the panel silhouette. */
-.modal.result-art-ready[data-result="win"] .result-foliage {
+/* decorative layer visibly escapes the panel edge */
+.modal[data-result="win"] .result-foliage,
+.modal[data-result="loss"] .result-foliage {
   display: block;
   position: absolute;
   z-index: 11;
   bottom: -9px;
-  width: 88px;
-  height: 73px;
+  width: 92px;
+  height: 72px;
   pointer-events: none;
-  filter: drop-shadow(0 4px 3px rgb(47 87 28 / 18%));
 }
 
-.modal.result-art-ready[data-result="win"] .result-foliage-left {
+.modal[data-result="win"] .result-foliage-left,
+.modal[data-result="loss"] .result-foliage-left {
   left: -4px;
-  transform: rotate(-5deg);
 }
 
-.modal.result-art-ready[data-result="win"] .result-foliage-right {
+.modal[data-result="win"] .result-foliage-right,
+.modal[data-result="loss"] .result-foliage-right {
   right: -4px;
-  transform: scaleX(-1) rotate(-5deg);
-}
-
-.modal.result-art-ready[data-result="win"] .result-foliage::before,
-.modal.result-art-ready[data-result="win"] .result-foliage::after {
-  content: "";
-  position: absolute;
-  border-radius: 80% 10% 80% 10%;
-  background: linear-gradient(135deg, #a8e64d 0%, #65bd35 52%, #368b2c 100%);
-  box-shadow:
-    33px 18px 0 -3px #74c73b,
-    58px 34px 0 -6px #4d9c2f;
-}
-
-.modal.result-art-ready[data-result="win"] .result-foliage::before {
-  left: 4px;
-  bottom: 14px;
-  width: 42px;
-  height: 25px;
-  transform: rotate(-19deg);
-}
-
-.modal.result-art-ready[data-result="win"] .result-foliage::after {
-  left: 29px;
-  bottom: 4px;
-  width: 35px;
-  height: 22px;
-  transform: rotate(13deg);
 }
 
 @media (max-width: 430px) {
-  .modal.result-art-ready[data-result="win"] .modal-card { scale: .93; }
+  .modal[data-result="win"] .modal-card,
+  .modal[data-result="loss"] .modal-card { scale: .93; }
 }
 
 @media (max-width: 390px) {
-  .modal.result-art-ready[data-result="win"] .modal-card { scale: .86; }
+  .modal[data-result="win"] .modal-card,
+  .modal[data-result="loss"] .modal-card { scale: .86; }
 }
 
 @media (max-height: 760px) {
-  .modal.result-art-ready[data-result="win"] .modal-card { scale: .90; }
+  .modal[data-result="win"] .modal-card,
+  .modal[data-result="loss"] .modal-card { scale: .90; }
 }
 
 @media (max-height: 680px) {
-  .modal.result-art-ready[data-result="win"] .modal-card { scale: .79; }
+  .modal[data-result="win"] .modal-card,
+  .modal[data-result="loss"] .modal-card { scale: .79; }
 }
 
 @media (min-width: 600px) {
