@@ -242,6 +242,7 @@ button { font: inherit; }
 
 .tutorial.hidden {
   opacity: 0;
+  visibility: hidden;
   transform: translate(-50%, -8px);
 }
 
