@@ -830,6 +830,257 @@ button { font: inherit; }
   to { translate: 0 9px; opacity: .95; }
 }
 
+
+/* Approved result-screen artwork: use generated sprites instead of CSS approximations. */
+.modal[data-result="win"] .modal-card {
+  width: 400px;
+  height: 660px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #57351f;
+  background: transparent url("./assets/result-ui-atlas.webp?v=20261005-result-art") no-repeat 0 0 / 1024px 1024px;
+  box-shadow: none;
+  overflow: visible;
+  text-align: center;
+  transform-origin: center center;
+}
+
+.modal[data-result="win"] .modal-card::before,
+.modal[data-result="win"] .modal-card::after,
+.modal[data-result="win"] .result-foliage,
+.modal[data-result="win"] .result-crown,
+.modal[data-result="win"] .result-icon-wrap,
+.modal[data-result="win"] .hero-sparkle {
+  display: none !important;
+}
+
+.modal[data-result="win"] .result-kicker {
+  position: absolute;
+  z-index: 8;
+  top: -14px;
+  left: 5px;
+  width: 390px;
+  height: 115px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  transform: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent url("./assets/result-ui-atlas.webp?v=20261005-result-art") no-repeat -410px 0 / 1024px 1024px;
+  box-shadow: none;
+  color: transparent;
+  font-size: 0;
+  letter-spacing: 0;
+  text-shadow: none;
+  overflow: hidden;
+}
+
+.modal[data-result="win"] .result-kicker::before,
+.modal[data-result="win"] .result-kicker::after {
+  display: none;
+}
+
+.modal[data-result="win"] .result-hero {
+  position: absolute;
+  z-index: 7;
+  top: 78px;
+  left: 108px;
+  width: 185px;
+  height: 190px;
+  margin: 0;
+  display: block;
+  background: transparent url("./assets/result-ui-atlas.webp?v=20261005-result-art") no-repeat 0 -670px / 1024px 1024px;
+}
+
+.modal[data-result="win"] .result-hero::before {
+  display: none;
+}
+
+.modal[data-result="win"] .result-title-ribbon {
+  position: absolute;
+  z-index: 9;
+  top: 225px;
+  left: 5px;
+  width: 390px;
+  height: 99px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent url("./assets/result-ui-atlas.webp?v=20261005-result-art") no-repeat -410px -125px / 1024px 1024px;
+  box-shadow: none;
+}
+
+.modal[data-result="win"] .result-title-ribbon::before,
+.modal[data-result="win"] .result-title-ribbon::after {
+  display: none;
+}
+
+.modal[data-result="win"] .result-title-ribbon h1 {
+  visibility: hidden;
+  margin: 0;
+}
+
+.modal[data-result="win"] .result-subtitle {
+  position: absolute;
+  z-index: 8;
+  top: 323px;
+  left: 30px;
+  width: 340px;
+  height: 62px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  background: transparent url("./assets/result-ui-atlas.webp?v=20261005-result-art") no-repeat -410px -234px / 1024px 1024px;
+  box-shadow: none;
+  color: transparent;
+  font-size: 0;
+  overflow: hidden;
+}
+
+.modal[data-result="win"] .result-subtitle #resultSubtitle,
+.modal[data-result="win"] .result-leaf {
+  visibility: hidden;
+}
+
+.modal[data-result="win"] .result-grid {
+  position: absolute;
+  z-index: 8;
+  top: 390px;
+  left: 38px;
+  width: 324px;
+  height: 124px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 102px);
+  gap: 9px;
+}
+
+.modal[data-result="win"] .result-stat {
+  position: relative;
+  width: 102px;
+  height: 124px;
+  min-width: 0;
+  min-height: 0;
+  padding: 62px 4px 7px;
+  border: 0;
+  border-radius: 0;
+  background: transparent url("./assets/result-ui-atlas.webp?v=20261005-result-art") no-repeat -195px -670px / 1024px 1024px;
+  box-shadow: none;
+}
+
+.modal[data-result="win"] .result-stat::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translateX(-50%);
+  background-image: url("./assets/result-ui-atlas.webp?v=20261005-result-art");
+  background-repeat: no-repeat;
+  background-size: 1024px 1024px;
+  filter: none;
+}
+
+.modal[data-result="win"] .result-stat[data-icon="target"]::before {
+  background-position: -307px -670px;
+}
+
+.modal[data-result="win"] .result-stat[data-icon="combo"]::before {
+  top: 7px;
+  height: 50px;
+  background-position: -361px -670px;
+}
+
+.modal[data-result="win"] .result-stat[data-icon="life"]::before {
+  top: 14px;
+  height: 36px;
+  background-position: -415px -670px;
+}
+
+.modal[data-result="win"] .result-stat span {
+  margin: 0 0 2px;
+  color: #714927;
+  font-size: 12px;
+  line-height: 1.1;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.modal[data-result="win"] .result-stat strong {
+  color: #ef4a22;
+  font-size: 27px;
+  line-height: 1.02;
+  font-weight: 1000;
+  text-shadow: 0 2px 0 #fff2ca;
+}
+
+.modal[data-result="win"] .primary-button,
+.modal[data-result="win"] .secondary-button {
+  position: absolute;
+  z-index: 8;
+  left: 25px;
+  width: 350px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background-image: url("./assets/result-ui-atlas.webp?v=20261005-result-art");
+  background-repeat: no-repeat;
+  background-size: 1024px 1024px;
+  color: transparent;
+  font-size: 0;
+  text-shadow: none;
+  overflow: hidden;
+}
+
+.modal[data-result="win"] .primary-button {
+  top: 520px;
+  height: 82px;
+  background-position: -410px -306px;
+}
+
+.modal[data-result="win"] .secondary-button {
+  top: 599px;
+  height: 72px;
+  background-position: -410px -398px;
+}
+
+.modal[data-result="win"] .primary-button::before,
+.modal[data-result="win"] .primary-button::after,
+.modal[data-result="win"] .secondary-button::before {
+  display: none;
+}
+
+.modal[data-result="win"] .primary-button:active,
+.modal[data-result="win"] .secondary-button:active {
+  transform: translateY(3px) scale(.99);
+  box-shadow: none;
+}
+
+@media (max-width: 430px) {
+  .modal[data-result="win"] .modal-card { scale: .92; }
+}
+
+@media (max-width: 390px) {
+  .modal[data-result="win"] .modal-card { scale: .84; }
+}
+
+@media (max-height: 760px) {
+  .modal[data-result="win"] .modal-card { scale: .88; }
+}
+
+@media (max-height: 680px) {
+  .modal[data-result="win"] .modal-card { scale: .78; }
+}
+
 @media (min-width: 600px) {
   .game-card { border-radius: 24px; }
 }
