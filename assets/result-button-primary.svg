@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="700" height="160" viewBox="0 0 700 160">
 <defs>
  <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ff9a45"/><stop offset=".48" stop-color="#ff6a2d"/><stop offset="1" stop-color="#e84420"/></linearGradient>
- <filter id="s"><feDropShadow dx="0" dy="10" stdDeviation="6" flood-color="#842815" flood-opacity=".38"/></filter>
+ 
 </defs>
-<g filter="url(#s)">
+<g>
  <rect x="8" y="8" width="684" height="132" rx="66" fill="url(#g)" stroke="#d84821" stroke-width="8"/>
  <rect x="18" y="18" width="664" height="112" rx="56" fill="none" stroke="#ffbd72" stroke-width="5" opacity=".75"/>
  <ellipse cx="135" cy="50" rx="77" ry="24" fill="#fff" opacity=".1"/>
