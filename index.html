@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#78c94b" />
   <title>辣椒小猫咪</title>
-  <link rel="stylesheet" href="./styles.css?v=polish-20261005" />
+  <link rel="stylesheet" href="./styles.css?v=result-premium-20261005" />
 </head>
 <body>
   <main class="app-shell" id="app">
@@ -47,23 +47,54 @@
       </nav>
 
       <section class="modal hidden" id="resultModal" role="dialog" aria-modal="true">
+        <div class="result-confetti" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
         <div class="modal-card">
-          <div class="result-kicker">🌶️ 关卡结算 🌶️</div>
-          <div class="result-icon-wrap"><div class="result-icon" id="resultIcon">🐱</div></div>
-          <h1 id="resultTitle">守住了！</h1>
-          <p id="resultSubtitle">怪潮退散，果园安全！</p>
-          <div class="result-grid">
-            <div class="result-stat"><span>命中率</span><strong id="accuracyValue">0%</strong></div>
-            <div class="result-stat"><span>最高连击</span><strong id="bestComboValue">0</strong></div>
-            <div class="result-stat"><span>剩余生命</span><strong id="lifeValue">3</strong></div>
+          <div class="result-kicker">关卡结算</div>
+
+          <div class="result-hero" aria-hidden="true">
+            <div class="result-crown">👑</div>
+            <div class="result-icon-wrap">
+              <div class="result-icon" id="resultIcon" role="img" aria-label="胜利小猫"></div>
+            </div>
+            <i class="hero-sparkle sparkle-a"></i>
+            <i class="hero-sparkle sparkle-b"></i>
+            <i class="hero-sparkle sparkle-c"></i>
           </div>
+
+          <div class="result-title-ribbon">
+            <h1 id="resultTitle">守住了！</h1>
+          </div>
+
+          <p class="result-subtitle">
+            <span class="result-leaf" aria-hidden="true">🍃</span>
+            <span id="resultSubtitle">怪椒退散，果园安全！</span>
+            <span class="result-leaf" aria-hidden="true">🍃</span>
+          </p>
+
+          <div class="result-grid">
+            <div class="result-stat" data-icon="target">
+              <span>命中率</span><strong id="accuracyValue">0%</strong>
+            </div>
+            <div class="result-stat" data-icon="combo">
+              <span>最高连击</span><strong id="bestComboValue">0</strong>
+            </div>
+            <div class="result-stat" data-icon="life">
+              <span>剩余生命</span><strong id="lifeValue">3</strong>
+            </div>
+          </div>
+
           <button class="primary-button" id="primaryResultButton" type="button">下一关</button>
           <button class="secondary-button" id="retryButton" type="button">重玩本关</button>
+
+          <div class="result-foliage result-foliage-left" aria-hidden="true"></div>
+          <div class="result-foliage result-foliage-right" aria-hidden="true"></div>
         </div>
       </section>
     </section>
   </main>
 
-  <script src="./main.js?v=polish-20261005"></script>
+  <script src="./main.js?v=result-premium-20261005"></script>
 </body>
 </html>
