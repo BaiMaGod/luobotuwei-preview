@@ -2,9 +2,9 @@
 <defs>
  <linearGradient id="brown" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ce8553"/><stop offset=".52" stop-color="#ad623c"/><stop offset="1" stop-color="#824326"/></linearGradient>
  <linearGradient id="tail" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ca7d4c"/><stop offset="1" stop-color="#71391f"/></linearGradient>
- <filter id="s"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#482718" flood-opacity=".34"/></filter>
+ 
 </defs>
-<g filter="url(#s)">
+<g>
  <path d="M94 56 12 76v87l83-13 52 42V48Z" fill="url(#tail)" stroke="#81452b" stroke-width="7"/>
  <path d="m686 56 82 20v87l-83-13-52 42V48Z" fill="url(#tail)" stroke="#81452b" stroke-width="7"/>
  <rect x="84" y="26" width="612" height="143" rx="42" fill="url(#brown)" stroke="#7f4328" stroke-width="8"/>
