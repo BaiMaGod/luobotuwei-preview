@@ -26,19 +26,7 @@
     freezeCount: document.getElementById('freezeCount'),
     bombCount: document.getElementById('bombCount'),
   };
-
-  const RESULT_ART_URL = './assets/result-layer-atlas.webp?v=result-layers-20261005-1850';
-  const resultArtImage = new Image();
-  resultArtImage.onload = () => {
-    DOM.resultModal.classList.add('result-art-ready');
-  };
-  resultArtImage.onerror = () => {
-    DOM.resultModal.classList.remove('result-art-ready');
-    console.warn('[辣椒小猫咪] 分层结算页素材加载失败，已自动回退到基础结算界面。');
-  };
-  resultArtImage.src = RESULT_ART_URL;
-
-  const W = 900;
+const W = 900;
   const H = 1600;
   const ASSET_URL = './assets/chili-cat-sprite.webp';
   const BACKGROUND_URL = './assets/garden-background.svg';
