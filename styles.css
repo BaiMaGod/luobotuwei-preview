@@ -871,6 +871,9 @@ button { font: inherit; }
   right: 14px;
   top: 49px;
   bottom: -4px;
+  width: auto;
+  height: auto;
+  transform: none;
   border-radius: 48px 48px 42px 42px / 38px 38px 48px 48px;
   background:
     radial-gradient(ellipse at 50% 12%, rgb(255 228 100 / 40%), transparent 38%),
@@ -891,6 +894,10 @@ button { font: inherit; }
   right: 20px;
   top: 51px;
   bottom: 0;
+  width: auto;
+  height: auto;
+  transform: none;
+  filter: none;
   border: 5px solid transparent;
   border-radius: 44px 44px 39px 39px / 39px 39px 45px 45px;
   background:
@@ -914,6 +921,7 @@ button { font: inherit; }
 .modal.result-art-ready[data-result="win"] .primary-button,
 .modal.result-art-ready[data-result="win"] .secondary-button,
 .modal.result-art-ready[data-result="win"] .result-stat::before {
+  background-color: transparent;
   background-image: var(--result-atlas);
   background-repeat: no-repeat;
 }
