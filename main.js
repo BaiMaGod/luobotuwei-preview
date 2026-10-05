@@ -1035,9 +1035,10 @@
     catPosition = { ...CAT_HOME };
     projectiles = projectiles.filter(p => p.mode !== 'waitingKick');
     DOM.resultModal.dataset.result = won ? 'win' : 'loss';
-    DOM.resultIcon.textContent = won ? '😺' : '😿';
+    DOM.resultIcon.textContent = '';
+    DOM.resultIcon.setAttribute('aria-label', won ? '胜利小猫' : '失落小猫');
     DOM.resultTitle.textContent = won ? '守住了！' : '差一点！';
-    DOM.resultSubtitle.textContent = won ? '怪潮退散，果园安全！' : '再看一眼辣椒方向，下一次一定能守住。';
+    DOM.resultSubtitle.textContent = won ? '怪椒退散，果园安全！' : '再看一眼辣椒方向，下一次一定能守住。';
     const accuracy = shots > 0 ? Math.round(successfulShots / shots * 100) : 0;
     DOM.accuracyValue.textContent = `${accuracy}%`;
     DOM.bestComboValue.textContent = String(bestCombo);
