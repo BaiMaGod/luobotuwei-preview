@@ -870,7 +870,7 @@ button { font: inherit; }
 .modal.result-art-ready[data-result="win"] .result-grid {
   position: absolute;
   z-index: 8;
-  top: 452px;
+  top: 466px;
   left: 31px;
   width: 333px;
   height: 34px;
@@ -906,7 +906,7 @@ button { font: inherit; }
   align-items: flex-start;
   justify-content: center;
   color: #ef4b22;
-  font-size: 28px;
+  font-size: 27px;
   line-height: 1;
   font-weight: 1000;
   text-align: center;
