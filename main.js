@@ -278,7 +278,7 @@ const W = 900;
   ];
   const PATH = buildPathData(PATH_POINTS);
   const PROJECTILE_SPEED = 1080;
-  const PATH_PROJECTILE_SPEED = 500;
+  const PATH_PROJECTILE_SPEED = 700;
   // Preserve enemy identities and the level curve, but leave twice as much
   // time to read the direction puzzle. This applies to bosses as well.
   const ENEMY_SPEED_SCALE = 0.5;
