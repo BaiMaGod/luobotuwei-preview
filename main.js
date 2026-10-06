@@ -277,13 +277,13 @@ const W = 900;
     { x: 105, y: 535 },
   ];
   const PATH = buildPathData(PATH_POINTS);
-  const PROJECTILE_SPEED = 880;
-  const PATH_PROJECTILE_SPEED = 400;
+  const PROJECTILE_SPEED = 1080;
+  const PATH_PROJECTILE_SPEED = 500;
   // Preserve enemy identities and the level curve, but leave twice as much
   // time to read the direction puzzle. This applies to bosses as well.
   const ENEMY_SPEED_SCALE = 0.5;
   const OPENING_THINK_TIME = 3;
-  const FINISHER_PATH_SPEED = 1000;
+  const FINISHER_PATH_SPEED = 1200;
   const CAT_HOME = Object.freeze({ x: 100, y: 365 });
   const CAT_KICK = Object.freeze({ behind: 76, windup: 0.075, strike: 0.055, recovery: 0.10, returnTime: 0.24 });
   const BASE_DAMAGE = 10;
