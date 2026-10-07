@@ -843,7 +843,7 @@ button { font: inherit; }
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: transparent url("./assets/result-frame.avif?v=approved-art-20261007") center / 395px 702px no-repeat;
+  background: transparent url("./assets/result-frame.avif?v=approved-art-hd-20261007") center / 395px 702px no-repeat;
   box-shadow: none;
   overflow: visible;
   isolation: isolate;
@@ -872,7 +872,7 @@ button { font: inherit; }
   height: 346px;
   margin: 0;
   transform: translateX(-50%);
-  background: transparent url("./assets/result-win-hero.avif?v=approved-art-20261007") center / contain no-repeat;
+  background: transparent url("./assets/result-win-hero.avif?v=approved-art-hd-20261007") center / contain no-repeat;
   filter: drop-shadow(0 5px 7px rgb(135 73 20 / 10%));
   pointer-events: none;
 }
@@ -1033,7 +1033,7 @@ button { font: inherit; }
   top: 504px;
   width: 310px;
   height: 81px;
-  background-image: url("./assets/result-next.avif?v=approved-art-20261007");
+  background-image: url("./assets/result-next.avif?v=approved-art-hd-20261007");
   background-size: 310px 81px;
 }
 .modal[data-result="win"] .secondary-button,
@@ -1041,7 +1041,7 @@ button { font: inherit; }
   top: 580px;
   width: 286px;
   height: 89px;
-  background-image: url("./assets/result-replay.avif?v=approved-art-20261007");
+  background-image: url("./assets/result-replay.avif?v=approved-art-hd-20261007");
   background-size: 286px 89px;
 }
 .modal[data-result="win"] .primary-button::before,
