@@ -831,424 +831,256 @@ button { font: inherit; }
 }
 
 
-/* Result screen v3: true layered DOM + independent SVG art assets.
-   No full-screen atlas and no poster-like rectangular bitmap. Both win/loss use this layout. */
+/* Approved original GPT-image art pack. Real transparent images, never CSS stand-in art.
+   result-frame already includes title/sign, flora, icon+label stat boxes. */
 .modal[data-result="win"] .modal-card,
 .modal[data-result="loss"] .modal-card {
   position: relative;
   z-index: 3;
   width: 395px;
-  height: 650px;
+  height: 702px;
   max-width: none;
   padding: 0;
   border: 0;
   border-radius: 0;
-  color: #57351f;
-  background: none;
+  background: transparent url("./assets/result-frame.avif?v=approved-art-20261007") center / 395px 702px no-repeat;
   box-shadow: none;
   overflow: visible;
   isolation: isolate;
   transform-origin: center center;
 }
-
-.modal[data-result="win"] .modal-card::after,
-.modal[data-result="loss"] .modal-card::after {
-  content: "";
-  position: absolute;
-  z-index: -3;
-  left: 17px;
-  right: 17px;
-  top: 51px;
-  bottom: -2px;
-  width: auto;
-  height: auto;
-  transform: none;
-  border-radius: 48px;
-  background:
-    radial-gradient(ellipse at 50% 10%, rgb(255 230 126 / 38%), transparent 37%),
-    radial-gradient(ellipse at 50% 95%, rgb(89 147 45 / 24%), transparent 52%);
-  filter: blur(15px);
-  opacity: .92;
-}
-
 .modal[data-result="win"] .modal-card::before,
-.modal[data-result="loss"] .modal-card::before {
-  content: "";
-  position: absolute;
-  z-index: -2;
-  left: 20px;
-  right: 20px;
-  top: 53px;
-  bottom: 0;
-  width: auto;
-  height: auto;
-  transform: none;
-  filter: none;
-  border: 5px solid transparent;
-  border-radius: 44px 44px 39px 39px / 39px 39px 45px 45px;
-  background:
-    radial-gradient(circle at 50% 19%, rgb(255 255 255 / 95%) 0 6%, transparent 31%) padding-box,
-    radial-gradient(circle at 50% 22%, rgb(255 226 102 / 30%), transparent 35%) padding-box,
-    linear-gradient(180deg, #fff9dc 0%, #fff3c8 61%, #ffe9ae 100%) padding-box,
-    linear-gradient(180deg, #d58837 0%, #f2ca68 18%, #c47a2f 62%, #8c5227 100%) border-box;
-  box-shadow:
-    inset 0 0 0 2px rgb(255 255 255 / 72%),
-    inset 0 -8px 0 rgb(205 147 57 / 16%),
-    0 8px 0 rgb(91 113 52 / 72%),
-    0 24px 44px rgb(18 40 13 / 42%);
+.modal[data-result="win"] .modal-card::after,
+.modal[data-result="loss"] .modal-card::before,
+.modal[data-result="loss"] .modal-card::after {
+  content: none !important;
 }
-
-/* independent title plaque asset */
+/* The frame already contains the original illustrated title. */
 .modal[data-result="win"] .result-kicker,
 .modal[data-result="loss"] .result-kicker {
+  display: none !important;
+}
+/* Success cat, medal, victory ribbon and safety sign: ONE genuine transparent illustration.
+   Only the decorative hero is grouped; all interaction + live stats remain separate layers. */
+.modal[data-result="win"] .result-hero {
   position: absolute;
-  z-index: 12;
-  top: -12px;
+  z-index: 5;
+  display: block;
+  top: 88px;
   left: 50%;
-  width: 360px;
-  height: 95px;
-  min-height: 0;
+  width: 277px;
+  height: 346px;
   margin: 0;
-  padding: 0 92px;
-  display: grid;
-  place-items: center;
   transform: translateX(-50%);
-  border: 0;
-  border-radius: 0;
-  background: transparent url("./assets/result-title-plaque.svg?v=result-v3-20261005-2036") center / 360px 95px no-repeat;
-  box-shadow: none;
-  color: #fff4ca;
-  font-size: 27px;
-  line-height: 1;
-  font-weight: 1000;
-  letter-spacing: .06em;
-  text-shadow:
-    -1px -1px 0 #7d351c,
-    1px -1px 0 #7d351c,
-    -1px 1px 0 #7d351c,
-    1px 1px 0 #7d351c,
-    0 4px 0 #713018;
+  background: transparent url("./assets/result-win-hero.avif?v=approved-art-20261007") center / contain no-repeat;
+  filter: drop-shadow(0 5px 7px rgb(135 73 20 / 10%));
   pointer-events: none;
 }
-
-.modal[data-result="win"] .result-kicker::before,
-.modal[data-result="win"] .result-kicker::after,
-.modal[data-result="loss"] .result-kicker::before,
-.modal[data-result="loss"] .result-kicker::after {
-  content: none;
+.modal[data-result="win"] .result-hero > *,
+.modal[data-result="win"] .result-title-ribbon,
+.modal[data-result="win"] .result-subtitle {
+  display: none !important;
 }
-
-/* independent hero layer; uses the game's verified cat sprite, not the broken atlas */
-.modal[data-result="win"] .result-hero,
+/* Failure retains game cat and real dynamic failure copy;
+   deliberately never shows the victory image or "守住了" art. */
 .modal[data-result="loss"] .result-hero {
   position: absolute;
-  z-index: 6;
-  top: 77px;
-  left: 50%;
-  width: 174px;
-  height: 150px;
-  margin: 0;
+  z-index: 5;
   display: grid;
   place-items: center;
+  top: 138px;
+  left: 50%;
+  width: 160px;
+  height: 135px;
+  margin: 0;
   transform: translateX(-50%);
+  filter: saturate(.82);
 }
-
-.modal[data-result="win"] .result-icon-wrap,
-.modal[data-result="loss"] .result-icon-wrap {
-  width: 136px;
-  height: 136px;
-  border-width: 7px;
-  box-shadow:
-    inset 0 -6px 0 #cf7724,
-    inset 0 3px 0 rgb(255 255 255 / 62%),
-    0 6px 0 rgb(130 76 29 / 22%),
-    0 13px 26px rgb(125 79 26 / 20%);
+.modal[data-result="loss"] .result-hero .result-icon-wrap {
+  display: flex;
+  width: 127px;
+  height: 127px;
+  border-width: 6px;
 }
-
-.modal[data-result="win"] .result-icon,
-.modal[data-result="loss"] .result-icon {
-  width: 112px;
-  height: 112px;
-}
-
-.modal[data-result="loss"] .result-crown {
-  display: none;
-}
-
-.modal[data-result="loss"] .result-icon-wrap {
-  filter: saturate(.82) brightness(.98);
-}
-
-/* independent ribbon assets */
-.modal[data-result="win"] .result-title-ribbon,
+.modal[data-result="loss"] .result-hero .result-icon { width: 110px; height: 110px; }
+.modal[data-result="loss"] .result-crown,
+.modal[data-result="loss"] .hero-sparkle { display: none !important; }
 .modal[data-result="loss"] .result-title-ribbon {
   position: absolute;
-  z-index: 9;
-  top: 213px;
-  left: 50%;
-  width: 382px;
-  height: 103px;
-  margin: 0;
-  padding: 0 32px;
+  z-index: 7;
   display: grid;
   place-items: center;
-  transform: translateX(-50%);
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background-color: transparent;
-  background-position: center;
-  background-size: 382px 103px;
-  background-repeat: no-repeat;
-}
-
-.modal[data-result="win"] .result-title-ribbon {
-  background-image: url("./assets/result-ribbon-win.svg?v=result-v3-20261005-2036");
-}
-
-.modal[data-result="loss"] .result-title-ribbon {
-  background-image: url("./assets/result-ribbon-loss.svg?v=result-v3-20261005-2036");
-}
-
-.modal[data-result="win"] .result-title-ribbon::before,
-.modal[data-result="win"] .result-title-ribbon::after,
-.modal[data-result="loss"] .result-title-ribbon::before,
-.modal[data-result="loss"] .result-title-ribbon::after {
-  content: none;
-}
-
-.modal[data-result="win"] .result-title-ribbon h1,
-.modal[data-result="loss"] .result-title-ribbon h1 {
-  visibility: visible;
+  top: 257px;
+  left: 50%;
+  width: 306px;
+  height: 68px;
   margin: 0;
-  color: #fff3be;
-  font-size: 49px;
-  line-height: 1;
-  font-weight: 1000;
-  letter-spacing: .01em;
-  text-shadow:
-    -2px -2px 0 #8f2b1a,
-    2px -2px 0 #8f2b1a,
-    -2px 2px 0 #8f2b1a,
-    2px 2px 0 #8f2b1a,
-    0 5px 0 rgb(111 36 22 / 72%);
+  padding: 0;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg,#ce8652 0%,#a75831 75%,#7c3c22 100%);
+  border: 4px solid #8b492a;
+  border-radius: 26px;
+  box-shadow: inset 0 3px 0 #f7bb85,0 5px 0 rgb(109 55 26 / 35%);
 }
-
+.modal[data-result="loss"] .result-title-ribbon::before,
+.modal[data-result="loss"] .result-title-ribbon::after { content: none; }
 .modal[data-result="loss"] .result-title-ribbon h1 {
-  font-size: 45px;
-  text-shadow:
-    -2px -2px 0 #7e3d25,
-    2px -2px 0 #7e3d25,
-    -2px 2px 0 #7e3d25,
-    2px 2px 0 #7e3d25,
-    0 5px 0 rgb(85 45 28 / 64%);
+  margin: 0;
+  font-size: 42px;
+  line-height: 1;
+  color: #fff4cb;
+  text-shadow: 0 3px 0 #784021;
 }
-
-/* subtitle is its own DOM layer, so loss/win copy remains dynamic */
-.modal[data-result="win"] .result-subtitle,
 .modal[data-result="loss"] .result-subtitle {
   position: absolute;
-  z-index: 8;
-  top: 316px;
+  z-index: 7;
+  top: 332px;
   left: 50%;
-  width: 308px;
-  min-height: 44px;
-  margin: 0;
-  padding: 7px 15px;
+  width: 305px;
+  min-height: 39px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 6px;
+  padding: 6px 10px;
+  margin: 0;
   transform: translateX(-50%);
-  border: 2px solid #e6cb82;
-  border-radius: 19px;
-  color: #684429;
-  background:
-    linear-gradient(180deg, rgb(255 255 246 / 96%), rgb(fff 246 211 / 94%));
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 75%),
-    0 3px 0 rgb(175 126 50 / 10%);
-  font-size: 14px;
+  border-radius: 18px;
+  border: 2px solid #dfc077;
+  background: #fff8d9;
+  color: #7c4d2a;
+  font-size: 12px;
   line-height: 1.25;
   font-weight: 900;
 }
-
-/* cards remain live DOM, with independent icons */
+/* Three numerical values are intentionally NOT baked into the frame. */
 .modal[data-result="win"] .result-grid,
 .modal[data-result="loss"] .result-grid {
   position: absolute;
   z-index: 10;
-  top: 373px;
-  left: 31px;
-  width: 333px;
-  height: 120px;
-  margin: 0;
+  top: 466px;
+  left: 48px;
+  width: 300px;
+  height: 30px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 9px;
+  grid-template-columns: repeat(3,1fr);
+  gap: 0;
+  margin: 0;
+  pointer-events: none;
 }
-
 .modal[data-result="win"] .result-stat,
 .modal[data-result="loss"] .result-stat {
   position: relative;
-  min-width: 0;
+  height: 30px;
   min-height: 0;
-  height: 120px;
-  padding: 53px 5px 8px;
-  border: 2px solid #e9c56a;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 50% 0%, rgb(255 255 255 / 95%), transparent 42%),
-    linear-gradient(180deg, rgb(255 255 255 / 94%), rgb(255 246 210 / 90%));
-  box-shadow:
-    inset 0 -4px 0 rgb(199 143 50 / 12%),
-    0 5px 0 rgb(169 123 45 / 13%);
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
-
-.modal[data-result="win"] .result-stat::after,
-.modal[data-result="loss"] .result-stat::after {
-  content: "";
-  position: absolute;
-  inset: 5px;
-  border: 1px solid rgb(255 223 129 / 56%);
-  border-radius: 14px;
-  pointer-events: none;
-}
-
 .modal[data-result="win"] .result-stat::before,
-.modal[data-result="loss"] .result-stat::before {
-  top: 8px;
-  font-size: 31px;
-  filter: drop-shadow(0 2px 0 rgb(109 56 25 / 14%));
-}
-
+.modal[data-result="loss"] .result-stat::before,
+.modal[data-result="win"] .result-stat::after,
+.modal[data-result="loss"] .result-stat::after,
 .modal[data-result="win"] .result-stat span,
 .modal[data-result="loss"] .result-stat span {
-  margin: 0 0 2px;
-  color: #6d4626;
-  font-size: 11px;
+  display: none !important;
+  content: none !important;
 }
-
 .modal[data-result="win"] .result-stat strong,
 .modal[data-result="loss"] .result-stat strong {
-  color: #ef4b22;
-  font-size: 28px;
-  line-height: 1;
-  font-weight: 1000;
-  text-shadow: 0 2px 0 #fff0c2;
-}
-
-/* independent button background assets + live HTML labels */
-.modal[data-result="win"] .primary-button {
   position: absolute;
-  z-index: 12;
-  top: 505px;
-  left: 50%;
-  width: 334px;
-  height: 76px;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  width: 100%;
   margin: 0;
-  padding: 0 56px 0 32px;
-  transform: translateX(-50%);
-  border: 0;
-  border-radius: 38px;
-  color: #fff7d5;
-  background: transparent url("./assets/result-button-primary.svg?v=result-v3-20261005-2036") center / 334px 76px no-repeat;
-  box-shadow: none;
-  font-size: 24px;
-  line-height: 76px;
+  padding: 0;
+  color: #ee4e25;
+  font-size: 26px;
+  line-height: 30px;
   font-weight: 1000;
-  text-shadow: 0 3px 0 rgb(142 46 24 / 42%);
+  text-align: center;
+  text-shadow: 0 2px 0 rgb(255 237 195 / 85%);
 }
-
-.modal[data-result="win"] .primary-button::before {
-  content: "🐾";
-  left: 25px;
-  opacity: .26;
-}
-
-.modal[data-result="win"] .primary-button::after {
-  content: "›";
-  right: 27px;
-  font-size: 42px;
-}
-
+/* User-provided art: real button backgrounds with the correct wording.
+   HTML button elements remain clickable & screen-reader accessible. */
+.modal[data-result="win"] .primary-button,
 .modal[data-result="win"] .secondary-button,
 .modal[data-result="loss"] .secondary-button {
   position: absolute;
   z-index: 12;
   left: 50%;
-  width: 300px;
-  height: 61px;
   margin: 0;
-  padding: 0 18px 0 50px;
+  padding: 0;
   transform: translateX(-50%);
   border: 0;
-  border-radius: 31px;
-  color: #597441;
-  background: transparent url("./assets/result-button-secondary.svg?v=result-v3-20261005-2036") center / 300px 61px no-repeat;
+  border-radius: 40px;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
   box-shadow: none;
-  font-size: 17px;
-  line-height: 61px;
-  font-weight: 1000;
+  color: transparent;
+  font-size: 0;
+  text-shadow: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-
-.modal[data-result="win"] .secondary-button { top: 589px; }
-.modal[data-result="loss"] .secondary-button { top: 520px; }
-
+.modal[data-result="win"] .primary-button {
+  top: 504px;
+  width: 310px;
+  height: 81px;
+  background-image: url("./assets/result-next.avif?v=approved-art-20261007");
+  background-size: 310px 81px;
+}
+.modal[data-result="win"] .secondary-button,
+.modal[data-result="loss"] .secondary-button {
+  top: 580px;
+  width: 286px;
+  height: 89px;
+  background-image: url("./assets/result-replay.avif?v=approved-art-20261007");
+  background-size: 286px 89px;
+}
+.modal[data-result="win"] .primary-button::before,
+.modal[data-result="win"] .primary-button::after,
 .modal[data-result="win"] .secondary-button::before,
 .modal[data-result="loss"] .secondary-button::before {
-  content: "↻";
-  left: 32%;
-  font-size: 27px;
+  content: none !important;
+  display: none !important;
 }
-
 .modal[data-result="win"] .primary-button:active,
 .modal[data-result="win"] .secondary-button:active,
 .modal[data-result="loss"] .secondary-button:active {
-  transform: translateX(-50%) translateY(3px) scale(.99);
-  filter: brightness(.97);
+  transform: translateX(-50%) translateY(2px) scale(.99);
+  filter: brightness(.96);
 }
-
-/* decorative layer visibly escapes the panel edge */
+.modal[data-result="win"] .primary-button:focus-visible,
+.modal[data-result="win"] .secondary-button:focus-visible,
+.modal[data-result="loss"] .secondary-button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+/* Leaf, rocks, flowers and chili decorations are in the irregular alpha frame. */
 .modal[data-result="win"] .result-foliage,
-.modal[data-result="loss"] .result-foliage {
-  display: block;
-  position: absolute;
-  z-index: 11;
-  bottom: -9px;
-  width: 92px;
-  height: 72px;
-  pointer-events: none;
-}
-
-.modal[data-result="win"] .result-foliage-left,
-.modal[data-result="loss"] .result-foliage-left {
-  left: -4px;
-}
-
-.modal[data-result="win"] .result-foliage-right,
-.modal[data-result="loss"] .result-foliage-right {
-  right: -4px;
-}
-
+.modal[data-result="loss"] .result-foliage { display: none !important; }
 @media (max-width: 430px) {
   .modal[data-result="win"] .modal-card,
   .modal[data-result="loss"] .modal-card { scale: .93; }
 }
-
 @media (max-width: 390px) {
   .modal[data-result="win"] .modal-card,
-  .modal[data-result="loss"] .modal-card { scale: .86; }
+  .modal[data-result="loss"] .modal-card { scale: .85; }
 }
-
 @media (max-height: 760px) {
   .modal[data-result="win"] .modal-card,
-  .modal[data-result="loss"] .modal-card { scale: .90; }
+  .modal[data-result="loss"] .modal-card { scale: .88; }
 }
-
 @media (max-height: 680px) {
   .modal[data-result="win"] .modal-card,
-  .modal[data-result="loss"] .modal-card { scale: .79; }
+  .modal[data-result="loss"] .modal-card { scale: .77; }
 }
 
 @media (min-width: 600px) {
