@@ -1043,7 +1043,7 @@ const W = 900;
     DOM.bestComboValue.textContent = String(bestCombo);
     DOM.lifeValue.textContent = String(Math.max(0, lives));
     DOM.primaryResultButton.style.display = won ? '' : 'none';
-    DOM.retryButton.textContent = won ? '重玩本关' : '再来一次';
+    DOM.retryButton.textContent = '重玩本关';
     DOM.resultModal.classList.remove('hidden');
     playTone(won ? 700 : 120, won ? 0.22 : 0.28, won ? 'triangle' : 'sawtooth', 0.055);
   }
