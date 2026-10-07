@@ -916,27 +916,7 @@ button { font: inherit; }
 }
 /* Keep the retry hint live and readable below the generated hero. */
 .modal[data-result="loss"] .result-subtitle {
-  position: absolute;
-  z-index: 8;
-  top: 407px;
-  left: 50%;
-  width: 305px;
-  min-height: 39px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 10px;
-  margin: 0;
-  transform: translateX(-50%);
-  border-radius: 18px;
-  border: 2px solid #dfc077;
-  background: #fff8d9;
-  color: #7c4d2a;
-  font-size: 12px;
-  line-height: 1.25;
-  font-weight: 900;
-  box-shadow: inset 0 2px 0 rgb(255 255 255 / 70%);
+  display: none !important;
 }
 
 /* Three numerical values are intentionally NOT baked into the frame. */
