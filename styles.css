@@ -876,6 +876,11 @@ button { font: inherit; }
   filter: drop-shadow(0 5px 7px rgb(135 73 20 / 10%));
   pointer-events: none;
 }
+.modal[data-result="win"] .result-hero::before,
+.modal[data-result="win"] .result-hero::after {
+  content: none !important;
+  display: none !important;
+}
 .modal[data-result="win"] .result-hero > *,
 .modal[data-result="win"] .result-title-ribbon,
 .modal[data-result="win"] .result-subtitle {
