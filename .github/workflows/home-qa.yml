@@ -1,0 +1,35 @@
+name: QA Homepage Staging
+on:
+  push:
+    branches: [qa-home-onboarding-20261008]
+  workflow_dispatch:
+jobs:
+  home-playwright:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Syntax and game rules
+        run: |
+          node --check main.js
+          node --test tests/logic.test.cjs tests/animation.test.cjs
+      - name: Real touches and progression
+        run: node tests/browser.cjs
+      - name: Home and results screenshots
+        run: node tests/visual-quality.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-home-screenshots
+          path: test-output/
+          retention-days: 10
