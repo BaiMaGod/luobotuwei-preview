@@ -527,7 +527,7 @@ const W = 900;
 
   function updateHomeProgress() {
     // The button keeps its arrow node, so only the text node is updated.
-    DOM.startGameButton.firstChild.textContent = maxUnlockedLevel > 1
+    if (DOM.startGameButton.firstChild) DOM.startGameButton.firstChild.textContent = maxUnlockedLevel > 1
       ? '继续第 ' + maxUnlockedLevel + ' 关 '
       : '开始闯关 ';
     DOM.homeProgress.textContent = maxUnlockedLevel > 1
