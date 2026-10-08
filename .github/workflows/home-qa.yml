@@ -21,6 +21,12 @@ jobs:
           test -n "$CHROME_BIN"
           echo "CHROMIUM_EXECUTABLE=$CHROME_BIN" >> "$GITHUB_ENV"
           "$CHROME_BIN" --version
+      - name: Install Chinese fonts for faithful pixel rendering
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+          fc-list :lang=zh family | grep -i 'Noto' | head -5
       - name: Syntax and game rules
         run: |
           node --check main.js
