@@ -1,0 +1,2847 @@
+(() => {
+  'use strict';
+
+  const DOM = {
+    game: document.getElementById('game'),
+    homeScreen: document.getElementById('homeScreen'),
+    startGameButton: document.getElementById('startGameButton'),
+    homeRestartButton: document.getElementById('homeRestartButton'),
+    homeProgress: document.getElementById('homeProgress'),
+    pauseHomeButton: document.getElementById('pauseHomeButton'),
+    pauseButton: document.getElementById('pauseButton'),
+    muteButton: document.getElementById('muteButton'),
+    pauseOverlay: document.getElementById('pauseOverlay'),
+    resumeButton: document.getElementById('resumeButton'),
+    pauseRetryButton: document.getElementById('pauseRetryButton'),
+    lives: document.getElementById('lives'),
+    levelLabel: document.getElementById('levelLabel'),
+    waveLabel: document.getElementById('waveLabel'),
+    comboLabel: document.getElementById('comboLabel'),
+    tutorial: document.getElementById('tutorial'),
+    tutorialText: document.getElementById('tutorialText'),
+    floatingMessage: document.getElementById('floatingMessage'),
+    resultModal: document.getElementById('resultModal'),
+    resultIcon: document.getElementById('resultIcon'),
+    resultTitle: document.getElementById('resultTitle'),
+    resultSubtitle: document.getElementById('resultSubtitle'),
+    accuracyValue: document.getElementById('accuracyValue'),
+    bestComboValue: document.getElementById('bestComboValue'),
+    lifeValue: document.getElementById('lifeValue'),
+    primaryResultButton: document.getElementById('primaryResultButton'),
+    retryButton: document.getElementById('retryButton'),
+    hammerButton: document.getElementById('hammerButton'),
+    freezeButton: document.getElementById('freezeButton'),
+    bombButton: document.getElementById('bombButton'),
+    hammerCount: document.getElementById('hammerCount'),
+    freezeCount: document.getElementById('freezeCount'),
+    bombCount: document.getElementById('bombCount'),
+  };
+const W = 900;
+  const H = 1600;
+  const ASSET_URL = './assets/chili-cat-sprite.webp';
+  const BACKGROUND_URL = './assets/garden-background.svg';
+  const ENEMY_ASSET_URLS = Object.freeze({
+    normal: './assets/monster-normal.webp',
+    fast: './assets/monster-fast.webp',
+    tank: './assets/monster-tank.webp',
+    boss: './assets/monster-boss.webp',
+  });
+  const RESULT_ART_URLS = Object.freeze([
+    './assets/result-frame.avif', './assets/result-win-hero.avif',
+    './assets/result-loss-hero.avif', './assets/result-next.avif',
+    './assets/result-replay.avif',
+  ]);
+  const SPRITES = {
+    title: [0, 0, 650, 488],
+    tutorial: [670, 0, 840, 280],
+    combo: [670, 300, 430, 287],
+    cat: [0, 510, 360, 360],
+    chili: [380, 510, 210, 210],
+    monster: [610, 510, 190, 190],
+    heart: [820, 530, 130, 130],
+    remove: [0, 900, 220, 220],
+    freeze: [240, 900, 220, 220],
+    bomb: [480, 900, 220, 220],
+  };
+  const DIRS = {
+    up: { dr: -1, dc: 0, x: 0, y: -1, angle: 0 },
+    right: { dr: 0, dc: 1, x: 1, y: 0, angle: Math.PI / 2 },
+    down: { dr: 1, dc: 0, x: 0, y: 1, angle: Math.PI },
+    left: { dr: 0, dc: -1, x: -1, y: 0, angle: -Math.PI / 2 },
+  };
+  const DIR_NAMES = Object.keys(DIRS);
+  const DEFAULT_BOARD = Object.freeze({ rows: 6, cols: 5, cell: 108, centerX: 450, centerY: 765 });
+  const ADVANCED_BOARD = Object.freeze({ rows: 7, cols: 6, cell: 90, centerX: 450, centerY: 765 });
+
+  // 从第 2 关开始，所有关卡维持 42/42 辣椒满铺；
+  // 后续关卡通过“清盘要求 + 怪物数量/血量/速度 + 刷怪频率 + Boss 数量 + 容错资源”严格递增。
+  const LEVEL_PROGRESSION = Object.freeze({
+    2: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 28, spawnInterval: 0.42, hpBoost: 2.05, speedBoost: 1.28,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 1, bomb: 1 }),
+      bossCount: 1, tankEvery: 4, fastEvery: 3,
+    }),
+    3: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 30, spawnInterval: 0.40, hpBoost: 2.16, speedBoost: 1.30,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 1, bomb: 1 }),
+      bossCount: 1, tankEvery: 4, fastEvery: 3,
+    }),
+    4: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 32, spawnInterval: 0.38, hpBoost: 2.28, speedBoost: 1.32,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 1, bomb: 0 }),
+      bossCount: 1, tankEvery: 4, fastEvery: 3,
+    }),
+    5: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 34, spawnInterval: 0.36, hpBoost: 2.42, speedBoost: 1.34,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 1, bomb: 0 }),
+      bossCount: 2, tankEvery: 4, fastEvery: 2,
+    }),
+    6: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 36, spawnInterval: 0.34, hpBoost: 2.58, speedBoost: 1.36,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 0, bomb: 1 }),
+      bossCount: 2, tankEvery: 3, fastEvery: 2,
+    }),
+    7: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 38, spawnInterval: 0.32, hpBoost: 2.76, speedBoost: 1.38,
+      requiredClearCount: 42, lives: 3,
+      tools: Object.freeze({ hammer: 1, freeze: 0, bomb: 0 }),
+      bossCount: 2, tankEvery: 3, fastEvery: 2,
+    }),
+    8: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 40, spawnInterval: 0.30, hpBoost: 2.96, speedBoost: 1.40,
+      requiredClearCount: 42, lives: 2,
+      tools: Object.freeze({ hammer: 1, freeze: 0, bomb: 0 }),
+      bossCount: 3, tankEvery: 3, fastEvery: 2,
+    }),
+    9: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 42, spawnInterval: 0.28, hpBoost: 3.18, speedBoost: 1.43,
+      requiredClearCount: 42, lives: 2,
+      tools: Object.freeze({ hammer: 0, freeze: 1, bomb: 0 }),
+      bossCount: 3, tankEvery: 3, fastEvery: 2,
+    }),
+    10: Object.freeze({
+      pepperCount: 42, pepperScale: 0.88,
+      enemyCount: 45, spawnInterval: 0.26, hpBoost: 3.42, speedBoost: 1.46,
+      requiredClearCount: 42, lives: 2,
+      tools: Object.freeze({ hammer: 0, freeze: 0, bomb: 0 }),
+      bossCount: 4, tankEvery: 2, fastEvery: 2,
+    }),
+  });
+
+  const LEVEL2_HELL = Object.freeze({
+    ...LEVEL_PROGRESSION[2],
+    requiredClearRatio: LEVEL_PROGRESSION[2].requiredClearCount / LEVEL_PROGRESSION[2].pepperCount,
+    minDirectionEntropy: 0.95,
+    maxInitialAvailable: 2,
+    minUnlockDepth: 18,
+    maxEarlyChoices: 2.5,
+  });
+
+  const BOARD = { ...DEFAULT_BOARD };
+  const ROAD = { width: 82 };
+
+  function getLevelProfile(levelNumber = level) {
+    return LEVEL_PROGRESSION[levelNumber] || null;
+  }
+
+  function getWaveClearThresholds() {
+    // 后半盘仍然持续有怪：最后一波在清掉 34/42 辣椒时才解锁，
+    // 给最后 8 个辣椒保留稳定的命中窗口。
+    return [0, 8, 17, 26, 34];
+  }
+
+  function getBossClearThresholds(bossCount) {
+    if (bossCount <= 0) return [];
+    if (bossCount === 1) return [8];
+    if (bossCount === 2) return [8, 24];
+    if (bossCount === 3) return [7, 20, 31];
+    return [6, 17, 28, 35].slice(0, bossCount);
+  }
+
+  function getBossSpeedRatio(levelNumber = level) {
+    // Boss 不分阶段、不停留，只是一直慢速前进。
+    // 第 2～10 关约为普通怪基础速度的 40%～45%。
+    return clamp(0.40 + Math.max(0, levelNumber - 2) * 0.006, 0.40, 0.45);
+  }
+
+  function chooseRegularEnemyType(index, profile) {
+    if (!profile) return 'normal';
+    if (index > 0 && index % profile.tankEvery === profile.tankEvery - 1) return 'tank';
+    if (index > 0 && index % profile.fastEvery === 1 % profile.fastEvery) return 'fast';
+    return 'normal';
+  }
+
+  function buildEnemySpawnPlan(profile) {
+    if (!profile) {
+      return Array.from({ length: totalEnemies }, (_, index) => ({
+        type: chooseEnemyType(index),
+        unlockAt: 0,
+        wave: 1,
+        priority: 1,
+      }));
+    }
+
+    const thresholds = getWaveClearThresholds();
+    const bossThresholds = getBossClearThresholds(profile.bossCount);
+    const regularCount = Math.max(0, profile.enemyCount - profile.bossCount);
+    const basePerWave = Math.floor(regularCount / thresholds.length);
+    const remainder = regularCount % thresholds.length;
+    const plan = [];
+    let regularIndex = 0;
+
+    thresholds.forEach((unlockAt, waveIndex) => {
+      const quota = basePerWave + (waveIndex < remainder ? 1 : 0);
+      for (let i = 0; i < quota; i++) {
+        plan.push({
+          type: chooseRegularEnemyType(regularIndex, profile),
+          unlockAt,
+          wave: waveIndex + 1,
+          priority: 1,
+        });
+        regularIndex++;
+      }
+    });
+
+    bossThresholds.forEach((unlockAt, bossIndex) => {
+      plan.push({
+        type: 'boss',
+        unlockAt,
+        wave: Math.min(thresholds.length, thresholds.findIndex(t => t >= unlockAt) + 1 || thresholds.length),
+        priority: 0,
+        bossIndex,
+      });
+    });
+
+    plan.sort((a, b) =>
+      a.unlockAt - b.unlockAt ||
+      a.priority - b.priority ||
+      (a.bossIndex ?? 999) - (b.bossIndex ?? 999)
+    );
+
+    if (plan.length !== profile.enemyCount) {
+      throw new Error(`第 ${level} 关刷怪计划数量异常：${plan.length}/${profile.enemyCount}`);
+    }
+    return plan;
+  }
+
+  function getToolCount(toolSet) {
+    return (toolSet.hammer || 0) + (toolSet.freeze || 0) + (toolSet.bomb || 0);
+  }
+
+  function computeProgressionIndex(profile) {
+    const toolCount = getToolCount(profile.tools);
+    return (
+      profile.enemyCount * 1.25 +
+      profile.hpBoost * 16 +
+      profile.speedBoost * 18 +
+      (1 / profile.spawnInterval) * 10 +
+      profile.requiredClearCount * 0.75 +
+      profile.bossCount * 4 +
+      (3 - toolCount) * 5 +
+      (3 - profile.lives) * 8 +
+      (5 - profile.tankEvery) * 2 +
+      (4 - profile.fastEvery) * 1.5
+    );
+  }
+
+  function validateDifficultyProgression() {
+    let previous = -Infinity;
+    let previousProfile = null;
+
+    for (let levelNumber = 2; levelNumber <= MAX_LEVEL; levelNumber++) {
+      const profile = getLevelProfile(levelNumber);
+      if (!profile) throw new Error(`缺少第 ${levelNumber} 关难度配置`);
+
+      const index = computeProgressionIndex(profile);
+      if (index <= previous) {
+        throw new Error(`难度曲线异常：第 ${levelNumber} 关没有比前一关更难`);
+      }
+
+      if (previousProfile) {
+        if (profile.enemyCount < previousProfile.enemyCount) throw new Error(`第 ${levelNumber} 关怪物数量下降`);
+        if (profile.hpBoost <= previousProfile.hpBoost) throw new Error(`第 ${levelNumber} 关怪物血量压力未提升`);
+        if (profile.speedBoost <= previousProfile.speedBoost) throw new Error(`第 ${levelNumber} 关怪物速度压力未提升`);
+        if (profile.spawnInterval >= previousProfile.spawnInterval) throw new Error(`第 ${levelNumber} 关刷怪频率未提升`);
+        if (profile.requiredClearCount < previousProfile.requiredClearCount) throw new Error(`第 ${levelNumber} 关清盘要求下降`);
+        if (profile.lives > previousProfile.lives) throw new Error(`第 ${levelNumber} 关生命容错增加`);
+        if (getToolCount(profile.tools) > getToolCount(previousProfile.tools)) throw new Error(`第 ${levelNumber} 关道具容错增加`);
+      }
+
+      previous = index;
+      previousProfile = profile;
+    }
+  }
+  const PATH_POINTS = [
+    { x: 245, y: 405 },
+    { x: 795, y: 405 },
+    { x: 795, y: 1195 },
+    { x: 105, y: 1195 },
+    { x: 105, y: 535 },
+  ];
+  const PATH = buildPathData(PATH_POINTS);
+  const PROJECTILE_SPEED = 1080;
+  const PATH_PROJECTILE_SPEED = 700;
+  // Preserve enemy identities and the level curve, but leave twice as much
+  // time to read the direction puzzle. This applies to bosses as well.
+  const ENEMY_SPEED_SCALE = 0.5;
+  const OPENING_THINK_TIME = 3;
+  const FINISHER_PATH_SPEED = 1200;
+  const CAT_HOME = Object.freeze({ x: 100, y: 365 });
+  const CAT_KICK = Object.freeze({ behind: 76, windup: 0.075, strike: 0.055, recovery: 0.10, returnTime: 0.24 });
+  const BASE_DAMAGE = 10;
+  const MAX_LEVEL = 10;
+
+  let canvas;
+  let ctx;
+  let backgroundCanvas;
+  let lastTime = performance.now();
+  let raf = 0;
+  let level = 1;
+  let lives = 3;
+  let totalEnemies = 0;
+  let spawnedEnemies = 0;
+  let defeatedEnemies = 0;
+  let spawnTimer = 0;
+  let spawnInterval = 1.1;
+  let gameState = 'playing';
+  let maxUnlockedLevel = 1;
+  let toolMode = null;
+  let toolsLeft = { hammer: 1, freeze: 1, bomb: 1 };
+  let freezeTimer = 0;
+  let feverTimer = 0;
+  let combo = 0;
+  let bestCombo = 0;
+  let comboTimer = 0;
+  let shots = 0;
+  let successfulShots = 0;
+  let tutorialDismissTimer = 0;
+  let lastHintAt = 0;
+  let hintTarget = null;
+  let hintUntil = 0;
+  let finisherReady = false;
+  let finisherLaunched = false;
+  let catHitTimer = 0;
+  let blockingHint = null;
+  let difficultyReport = null;
+  let enemySpawnPlan = [];
+  let spawnPlanIndex = 0;
+  let currentWave = 0;
+  let carrots = [];
+  let carrotByCell = new Map();
+  let projectiles = [];
+  let enemies = [];
+  let effects = [];
+  let catAction = null;
+  let catPosition = { ...CAT_HOME };
+  let audioContext = null;
+  let soundEnabled = true;
+  let audioUnlocked = false;
+  let soundVoices = 0;
+  const soundBuffers = new Map();
+  const soundLastPlayed = Object.create(null);
+  const SOUND_PROFILES = Object.freeze({
+    blocked: { duration: .11, start: 245, end: 117, noise: .12, gain: .10, cooldown: .09 },
+    kick: { duration: .19, start: 390, end: 145, noise: .15, gain: .14, cooldown: .055 },
+    finisher: { duration: .32, start: 760, end: 400, noise: .10, gain: .18, cooldown: .08,
+      notes: [[.09, .13, 990], [.20, .12, 1320]] },
+    hit: { duration: .13, start: 340, end: 170, noise: .32, gain: .085, cooldown: .07 },
+    kill: { duration: .21, start: 520, end: 225, noise: .17, gain: .14, cooldown: .09,
+      notes: [[.07, .11, 785]] },
+    bossSpawn: { duration: .29, start: 123, end: 69, noise: .28, gain: .16, cooldown: .30 },
+    bossKill: { duration: .36, start: 250, end: 65, noise: .36, gain: .17, cooldown: .25,
+      notes: [[.14, .16, 520]] },
+    damage: { duration: .23, start: 222, end: 83, noise: .19, gain: .14, cooldown: .18 },
+    freeze: { duration: .46, start: 950, end: 390, noise: .13, gain: .12, cooldown: .40,
+      notes: [[.13, .22, 1319], [.25, .18, 1568]] },
+    bomb: { duration: .40, start: 158, end: 53, noise: .48, gain: .16, cooldown: .35 },
+    win: { duration: .76, start: 523, end: 523, noise: .025, gain: .17, cooldown: 1,
+      notes: [[.07, .22, 659], [.20, .22, 784], [.34, .36, 1047]] },
+    loss: { duration: .59, start: 311, end: 132, noise: .10, gain: .14, cooldown: 1,
+      notes: [[.14, .27, 247], [.26, .27, 196]] },
+    toolSelect: { duration: .11, start: 580, end: 360, noise: .09, gain: .07, cooldown: .1 },
+  });
+  let assetSheet = null;
+  let backgroundImage = null;
+  let enemyArt = Object.create(null);
+
+  boot();
+
+  async function boot() {
+    try {
+      canvas = document.createElement('canvas');
+      canvas.setAttribute('aria-label', '辣椒小猫咪关卡画面');
+      DOM.game.replaceChildren(canvas);
+      ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) throw new Error('Canvas 2D context unavailable');
+
+      resizeCanvas();
+      const enemyEntries = Object.entries(ENEMY_ASSET_URLS);
+      const [assetResult, backgroundResult, ...enemyResults] = await Promise.allSettled([
+        loadImage(ASSET_URL),
+        loadImage(BACKGROUND_URL),
+        ...enemyEntries.map(([, url]) => loadImage(url)),
+      ]);
+
+      if (assetResult.status === 'fulfilled') {
+        assetSheet = assetResult.value;
+        DOM.game.dataset.assets = 'ready';
+      } else {
+        console.warn('[辣椒小猫咪] 元素素材加载失败，使用基础绘制兜底', assetResult.reason);
+        assetSheet = null;
+        DOM.game.dataset.assets = 'fallback';
+      }
+
+      if (backgroundResult.status === 'fulfilled') {
+        backgroundImage = backgroundResult.value;
+        DOM.game.dataset.background = 'ready';
+      } else {
+        console.warn('[辣椒小猫咪] 花园背景加载失败，使用程序背景兜底', backgroundResult.reason);
+        backgroundImage = null;
+        DOM.game.dataset.background = 'fallback';
+      }
+
+      enemyArt = Object.create(null);
+      enemyResults.forEach((result, index) => {
+        const [type] = enemyEntries[index];
+        if (result.status === 'fulfilled') enemyArt[type] = result.value;
+        else console.warn(`[辣椒小猫咪] ${type} 怪物素材加载失败，使用旧怪物素材兜底`, result.reason);
+      });
+      const loadedEnemyArt = Object.keys(enemyArt).length;
+      DOM.game.dataset.enemyArt = loadedEnemyArt === enemyEntries.length ? 'ready' : loadedEnemyArt ? 'partial' : 'fallback';
+      // The conclusion artwork is CSS-based and was previously absent from resource checks.
+      // Decode every approved artwork now, so a broken AVIF can never silently look "tested".
+      const resultArt = await Promise.allSettled(RESULT_ART_URLS.map(loadImage));
+      const failedResultArt = resultArt.flatMap((entry, index) =>
+        entry.status === 'rejected' ? [RESULT_ART_URLS[index]] : []
+      );
+      DOM.game.dataset.resultArt = failedResultArt.length ? 'missing' : 'ready';
+      DOM.resultModal.dataset.art = failedResultArt.length ? 'missing' : 'ready';
+      if (failedResultArt.length) {
+        console.error('[辣椒小猫咪] 结算美术未能解码，禁止视为通过：', failedResultArt);
+      }
+
+      validateDifficultyProgression();
+      backgroundCanvas = createBackgroundCanvas();
+      bindEvents();
+      loadLevel(1);
+      enterHome();
+      DOM.game.dataset.ready = '1';
+      raf = requestAnimationFrame(loop);
+    } catch (error) {
+      console.error('[辣椒小猫咪] 启动失败', error);
+      DOM.game.dataset.ready = '0';
+      DOM.game.dataset.error = error && error.message ? error.message : String(error);
+      showFatalError(error);
+    }
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('素材加载失败: ' + src));
+      img.src = src;
+    });
+  }
+
+  function bindEvents() {
+    canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
+    window.addEventListener('resize', resizeCanvas);
+
+    DOM.primaryResultButton.addEventListener('click', () => {
+      if (gameState !== 'won') return;
+      loadLevel(level >= MAX_LEVEL ? 1 : level + 1);
+    });
+    DOM.retryButton.addEventListener('click', () => loadLevel(level));
+    DOM.hammerButton.addEventListener('click', () => { unlockAudio(); toggleTool('hammer'); });
+    DOM.freezeButton.addEventListener('click', () => { unlockAudio(); useFreeze(); });
+    DOM.bombButton.addEventListener('click', () => { unlockAudio(); useBomb(); });
+    DOM.pauseButton.addEventListener('click', pauseGame);
+    try { soundEnabled = localStorage.getItem('chili-cat:sound-enabled') !== 'false'; } catch (_) {}
+    updateMuteButton();
+    DOM.muteButton.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      updateMuteButton();
+      if (soundEnabled) unlockAudio();
+      try { localStorage.setItem('chili-cat:sound-enabled', String(soundEnabled)); } catch (_) {}
+      if (soundEnabled) playSound('toolSelect');
+    });
+    DOM.resumeButton.addEventListener('click', resumeGame);
+    DOM.pauseRetryButton.addEventListener('click', () => loadLevel(level));
+    DOM.pauseHomeButton.addEventListener('click', enterHome);
+    DOM.startGameButton.addEventListener('click', () => startFromHome(maxUnlockedLevel));
+    DOM.homeRestartButton.addEventListener('click', () => startFromHome(1));
+    try {
+      const stored = Number(localStorage.getItem('chili-cat:max-level'));
+      if (Number.isInteger(stored) && stored >= 1 && stored <= MAX_LEVEL) maxUnlockedLevel = stored;
+    } catch (_) {}
+    updateHomeProgress();
+  }
+
+  function resizeCanvas() {
+    if (!canvas || !ctx) return;
+    // Do not draw a 1800x3200 backing buffer only to downscale it into a
+    // roughly 390x693 CSS game on retina phones. We keep 900x1600 LOGIC space
+    // and use at most 2 physical pixels per actual displayed CSS pixel.
+    const rect = DOM.game.getBoundingClientRect();
+    const visualWidth = rect.width || W;
+    const visualHeight = rect.height || H;
+    const density = Math.min(Math.max(window.devicePixelRatio || 1, 1.5), 2);
+    const pixelWidth = Math.max(1, Math.round(visualWidth * density));
+    const pixelHeight = Math.max(1, Math.round(visualHeight * density));
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+    }
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    ctx.setTransform(pixelWidth / W, 0, 0, pixelHeight / H, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    fitResultArt();
+  }
+
+  function fitResultArt() {
+    // "scale" is independent from the result-pop transform animation.
+    // Always use the real game viewport instead of brittle breakpoint guesses.
+    if (!DOM.game || !DOM.resultModal) return;
+    if (typeof DOM.resultModal.querySelector !== 'function') return; // headless logic harness has no layout
+    const card = DOM.resultModal.querySelector('.modal-card');
+    if (!card) return;
+    const availableWidth = Math.max(1, DOM.game.clientWidth - 28);
+    const availableHeight = Math.max(1, DOM.game.clientHeight - 68);
+    const factor = Math.max(0.1, Math.min(1, availableWidth / 395, availableHeight / 702));
+    card.style.scale = String(factor);
+    DOM.resultModal.dataset.scale = factor.toFixed(3);
+  }
+
+  function updateMuteButton() {
+    DOM.muteButton.textContent = soundEnabled ? '♫' : '♪̸';
+    DOM.muteButton.setAttribute('aria-label', soundEnabled ? '关闭音效' : '开启音效');
+    DOM.muteButton.setAttribute('aria-pressed', String(!soundEnabled));
+    DOM.muteButton.classList.toggle('muted', !soundEnabled);
+  }
+
+
+  function updateHomeProgress() {
+    // The button keeps its arrow node, so only the text node is updated.
+    if (DOM.startGameButton.firstChild) DOM.startGameButton.firstChild.textContent = maxUnlockedLevel > 1
+      ? '继续第 ' + maxUnlockedLevel + ' 关 '
+      : '开始闯关 ';
+    DOM.homeProgress.textContent = maxUnlockedLevel > 1
+      ? '已解锁第 ' + maxUnlockedLevel + ' 关 · 随时回来继续'
+      : '第 1 关 · 首次守护果园';
+    DOM.homeRestartButton.hidden = maxUnlockedLevel <= 1;
+  }
+
+  function startFromHome(targetLevel = 1) {
+    if (gameState !== 'home') return;
+    unlockAudio();
+    loadLevel(targetLevel);
+    DOM.homeScreen.classList.add('hidden');
+    DOM.game.parentElement.classList.remove('on-home');
+    DOM.game.dataset.screen = 'game';
+    lastTime = performance.now();
+    updateDebugDataset();
+  }
+
+  function enterHome() {
+    // Reset in-flight actions and freeze the enemies; the home screen does not
+    // conceal any running round or silently consume lives.
+    loadLevel(1);
+    gameState = 'home';
+    DOM.homeScreen.classList.remove('hidden');
+    DOM.game.parentElement.classList.add('on-home');
+    DOM.game.dataset.screen = 'home';
+    DOM.pauseOverlay.classList.add('hidden');
+    DOM.resultModal.classList.add('hidden');
+    updateHomeProgress();
+    updateDebugDataset();
+  }
+
+  function unlockLevel(next) {
+    if (next <= maxUnlockedLevel) return;
+    maxUnlockedLevel = Math.min(MAX_LEVEL, next);
+    try { localStorage.setItem('chili-cat:max-level', String(maxUnlockedLevel)); } catch (_) {}
+    updateHomeProgress();
+  }
+
+  function pauseGame() {
+    if (gameState !== 'playing') return;
+    gameState = 'paused';
+    DOM.pauseOverlay.classList.remove('hidden');
+    DOM.pauseButton.setAttribute('aria-expanded', 'true');
+    updateDebugDataset();
+  }
+
+  function resumeGame() {
+    if (gameState !== 'paused') return;
+    gameState = 'playing';
+    DOM.pauseOverlay.classList.add('hidden');
+    DOM.pauseButton.setAttribute('aria-expanded', 'false');
+    lastTime = performance.now();
+    updateDebugDataset();
+  }
+
+  function createBackgroundCanvas() {
+    const bg = document.createElement('canvas');
+    bg.width = W;
+    bg.height = H;
+    const g = bg.getContext('2d');
+
+    if (backgroundImage) {
+      g.drawImage(backgroundImage, 0, 0, W, H);
+      return bg;
+    }
+
+    const grad = g.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#8bd95d');
+    grad.addColorStop(0.55, '#79cc4c');
+    grad.addColorStop(1, '#72c646');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, W, H);
+
+    const random = mulberry32(20260921);
+    for (let i = 0; i < 145; i++) {
+      const x = random() * W;
+      const y = 300 + random() * 1180;
+      const r = 2 + random() * 6;
+      g.globalAlpha = 0.08 + random() * 0.08;
+      g.fillStyle = random() > 0.5 ? '#b9ed77' : '#55ad3f';
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1;
+
+    drawRoad(g);
+
+    // 棋盘中央只保留轻量小花/三叶草，较大的装饰全部放在玩法区外侧，
+    // 避免让玩家误以为是会阻挡辣椒的机关。
+    const bushes = [
+      [48, 650, 24], [852, 650, 23], [50, 985, 25],
+      [850, 1015, 24], [64, 330, 22], [838, 1320, 23],
+    ];
+    bushes.forEach(([x, y, r]) => drawBush(g, x, y, r));
+
+    const flowers = [
+      [235, 555, '#fff8e6'], [665, 565, '#ffe169'], [260, 760, '#fff8e6'],
+      [640, 825, '#fff8e6'], [275, 1055, '#ffe169'], [625, 1075, '#fff8e6'],
+      [75, 275, '#ffd76a'], [825, 1390, '#fff8e6'],
+    ];
+    flowers.forEach(([x, y, c]) => drawFlower(g, x, y, c, 8));
+
+    const stones = [[52, 560], [848, 875], [56, 1110], [845, 1210]];
+    stones.forEach(([x, y], i) => {
+      g.fillStyle = i % 2 ? '#bbb9a8' : '#c9c5b5';
+      g.strokeStyle = '#91917f';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.ellipse(x, y, 13, 8, -0.25, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    });
+
+    return bg;
+  }
+
+  function drawRoad(g) {
+    g.lineCap = 'butt';
+    g.lineJoin = 'miter';
+
+    g.strokeStyle = '#3f9f39';
+    g.lineWidth = ROAD.width + 30;
+    g.beginPath();
+    g.moveTo(PATH_POINTS[0].x, PATH_POINTS[0].y);
+    for (let i = 1; i < PATH_POINTS.length; i++) g.lineTo(PATH_POINTS[i].x, PATH_POINTS[i].y);
+    g.stroke();
+
+    g.strokeStyle = '#956239';
+    g.lineWidth = ROAD.width + 14;
+    g.beginPath();
+    g.moveTo(PATH_POINTS[0].x, PATH_POINTS[0].y);
+    for (let i = 1; i < PATH_POINTS.length; i++) g.lineTo(PATH_POINTS[i].x, PATH_POINTS[i].y);
+    g.stroke();
+
+    g.strokeStyle = '#e1a55d';
+    g.lineWidth = ROAD.width;
+    g.beginPath();
+    g.moveTo(PATH_POINTS[0].x, PATH_POINTS[0].y);
+    for (let i = 1; i < PATH_POINTS.length; i++) g.lineTo(PATH_POINTS[i].x, PATH_POINTS[i].y);
+    g.stroke();
+
+    g.strokeStyle = 'rgba(255,231,176,.35)';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(PATH_POINTS[0].x, PATH_POINTS[0].y - 17);
+    g.lineTo(PATH_POINTS[1].x, PATH_POINTS[1].y - 17);
+    g.stroke();
+
+    for (let i = 0; i < 24; i++) {
+      const seg = i % (PATH_POINTS.length - 1);
+      const a = PATH_POINTS[seg];
+      const b = PATH_POINTS[seg + 1];
+      const t = 0.08 + ((i * 0.139) % 0.84);
+      const horizontal = Math.abs(b.x - a.x) > Math.abs(b.y - a.y);
+      const jitter = ((i % 3) - 1) * 20;
+      const x = lerp(a.x, b.x, t) + (horizontal ? 0 : jitter);
+      const y = lerp(a.y, b.y, t) + (horizontal ? jitter : 0);
+      g.fillStyle = i % 3 === 0 ? '#b57842' : '#c78b50';
+      g.beginPath();
+      g.ellipse(x, y, 7, 3.5, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    g.fillStyle = '#8c5a34';
+    g.strokeStyle = '#664025';
+    g.lineWidth = 5;
+    roundRect(g, 58, 430, 84, 22, 8);
+    g.fill();
+    g.stroke();
+  }
+
+  function drawBush(g, x, y, r) {
+    const colors = ['#4da33c', '#5cb147', '#70bd4d'];
+    g.strokeStyle = '#347f35';
+    g.lineWidth = 2.5;
+    for (let i = 0; i < 5; i++) {
+      const a = i / 5 * Math.PI * 2;
+      g.fillStyle = colors[i % colors.length];
+      g.beginPath();
+      g.ellipse(x + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.23, r * 0.47, r * 0.31, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    }
+  }
+
+  function drawFlower(g, x, y, petal, size) {
+    for (let i = 0; i < 5; i++) {
+      const a = i / 5 * Math.PI * 2;
+      g.fillStyle = petal;
+      g.beginPath();
+      g.ellipse(x + Math.cos(a) * size, y + Math.sin(a) * size, size * 0.72, size, a, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = '#efb52f';
+    g.beginPath();
+    g.arc(x, y, size * 0.48, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  function loadLevel(nextLevel) {
+    level = nextLevel;
+    const profile = getLevelProfile(level);
+    const advanced = Boolean(profile);
+    Object.assign(BOARD, advanced ? ADVANCED_BOARD : DEFAULT_BOARD);
+
+    gameState = 'playing';
+    DOM.pauseOverlay.classList.add('hidden');
+    DOM.pauseButton.setAttribute('aria-expanded', 'false');
+    lives = profile ? profile.lives : 3;
+    totalEnemies = profile ? profile.enemyCount : 6 + Math.ceil(level * 0.7);
+    spawnedEnemies = 0;
+    defeatedEnemies = 0;
+    spawnInterval = Math.max(1.5, 2.4 - (level - 1) * 0.1);
+    spawnTimer = OPENING_THINK_TIME;
+    toolMode = null;
+    toolsLeft = profile ? { ...profile.tools } : { hammer: 1, freeze: 1, bomb: 1 };
+    freezeTimer = 0;
+    feverTimer = 0;
+    combo = 0;
+    bestCombo = 0;
+    comboTimer = 0;
+    shots = 0;
+    successfulShots = 0;
+    effects = [];
+    catAction = null;
+    catPosition = { ...CAT_HOME };
+    projectiles = [];
+    enemies = [];
+    enemySpawnPlan = [];
+    spawnPlanIndex = 0;
+    currentWave = 0;
+    hintTarget = null;
+    hintUntil = 0;
+    finisherReady = false;
+    finisherLaunched = false;
+    catHitTimer = 0;
+    blockingHint = null;
+    lastHintAt = performance.now();
+
+    const count = Math.min(14 + level * 2, BOARD.rows * BOARD.cols - 3);
+    const layout = advanced
+      ? generateLevel2HardLayout()
+      : generateSolvableLayout(BOARD.rows, BOARD.cols, count, 5000 + level * 7919);
+
+    enemySpawnPlan = buildEnemySpawnPlan(profile);
+    difficultyReport = evaluateLevelDifficulty(layout);
+    if (profile) validateAdvancedLevelDifficulty(difficultyReport, profile);
+
+    carrots = layout.map((item, index) => createCarrot(item, index));
+    carrotByCell = new Map(carrots.map(c => [cellKey(c.row, c.col), c]));
+
+    DOM.levelLabel.textContent = `第 ${level} 关`;
+    DOM.waveLabel.textContent = `怪物 0 / ${totalEnemies}`;
+    DOM.resultModal.classList.add('hidden');
+    DOM.resultModal.dataset.result = '';
+    DOM.floatingMessage.classList.remove('show');
+    DOM.floatingMessage.textContent = '';
+    DOM.tutorial.classList.add('hidden');
+    DOM.tutorialText.textContent = '';
+    tutorialDismissTimer = 0;
+
+    updateHUD();
+    updateToolButtons();
+    updateDebugDataset();
+
+    if (profile) {
+      console.info(`[辣椒小猫咪] 第 ${level} 关难度评估`, difficultyReport);
+      console.info(`[辣椒小猫咪] 第 ${level} 关刷怪计划`, enemySpawnPlan);
+    }
+  }
+
+  function createCarrot(data, index) {
+    const p = cellToWorld(data.row, data.col);
+    return {
+      id: index,
+      row: data.row,
+      col: data.col,
+      dir: data.dir,
+      type: data.type,
+      x: p.x,
+      y: p.y,
+      baseX: p.x,
+      baseY: p.y,
+      active: true,
+      bumpTime: 0,
+    };
+  }
+
+  function createEnemy(type = 'normal') {
+    const config = enemyConfig(type);
+    const profile = getLevelProfile(level);
+    const hpBoost = profile ? profile.hpBoost : 1;
+    const maxHp = Math.round(config.hp * (1 + (level - 1) * 0.045) * hpBoost);
+    const start = PATH_POINTS[0];
+
+    const baseSpeed = type === 'boss' && profile
+      ? enemyConfig('normal').speed * getBossSpeedRatio(level)
+      : config.speed * (1 + (level - 1) * 0.018) * (profile ? profile.speedBoost : 1);
+    const speed = baseSpeed * ENEMY_SPEED_SCALE;
+
+    enemies.push({
+      id: `${spawnedEnemies}-${performance.now()}`,
+      type,
+      x: start.x,
+      y: start.y,
+      distance: 0,
+      previousDistance: 0,
+      hp: maxHp,
+      maxHp,
+      radius: config.radius,
+      speed,
+      active: true,
+      hitFlash: 0,
+      hitReaction: 0,
+      rageFlash: 0,
+      age: 0,
+      spawnPulse: type === 'boss' ? 0.55 : 0.26,
+      stompTimer: type === 'boss' ? 0.55 : type === 'tank' ? 0.85 : 0,
+    });
+
+    if (type === 'boss') {
+      effects.push({
+        kind: 'spawnShock',
+        x: start.x,
+        y: start.y + config.radius * 0.65,
+        life: 0.7,
+        maxLife: 0.7,
+        radius: 28,
+      });
+      createBurst(start.x, start.y, '#ffb13c', 12);
+      playSound('bossSpawn');
+    }
+  }
+
+  function enemyConfig(type) {
+    if (type === 'fast') return { hp: 24, speed: 116, radius: 27, color: '#a768e8' };
+    if (type === 'tank') return { hp: 55, speed: 58, radius: 34, color: '#68a8d7' };
+    if (type === 'boss') return { hp: 90, speed: 78, radius: 42, color: '#d9a13a' };
+    return { hp: 32, speed: 78, radius: 30, color: '#e9685a' };
+  }
+
+  function chooseEnemyType(index) {
+    const profile = getLevelProfile(level);
+    if (profile) return chooseRegularEnemyType(index, profile);
+
+    if (level >= 4 && index % 6 === 5) return 'tank';
+    if (level >= 3 && index % 5 === 3) return 'fast';
+    return 'normal';
+  }
+
+  function loop(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.04);
+    lastTime = now;
+    update(dt, now);
+    // Home completely covers the game. Paused/finished scenes remain static
+    // underneath their overlays. Avoid expensive invisible full-canvas renders.
+    if (gameState === 'playing') render(now);
+    raf = requestAnimationFrame(loop);
+  }
+
+  function update(dt, now) {
+    if (gameState === 'paused' || gameState === 'home') return;
+    if (gameState !== 'playing') {
+      updateEffects(dt);
+      return;
+    }
+
+    tutorialDismissTimer -= dt;
+    if (tutorialDismissTimer <= 0) DOM.tutorial.classList.add('hidden');
+    if (freezeTimer > 0) freezeTimer -= dt;
+    if (feverTimer > 0) feverTimer -= dt;
+    if (catHitTimer > 0) catHitTimer -= dt;
+    if (blockingHint) {
+      blockingHint.life -= dt;
+      if (blockingHint.life <= 0) blockingHint = null;
+    }
+
+    updateCarrotBumps(dt);
+    updateSpawner(dt);
+    updateEnemies(dt);
+    updateCatKick(dt);
+    updateProjectiles(dt);
+    enemies = enemies.filter(e => e.active);
+    updateEffects(dt);
+    updateCombo(dt);
+    updateHint(now);
+    updateHUD();
+    checkEndState();
+    updateDebugDataset();
+  }
+
+  function updateSpawner(dt) {
+    // Time pressure continues even while the player is thinking or the road is empty.
+    // The last pepper closes the entrance so its cleanup can finish.
+    if (gameState !== 'playing' || finisherLaunched) return;
+
+    const next = enemySpawnPlan[spawnPlanIndex] || {
+      type: chooseEnemyType(spawnedEnemies), wave: currentWave, priority: 1,
+    };
+
+    spawnTimer -= dt;
+    if (spawnTimer > 0) return;
+
+    if (next.wave > currentWave) {
+      currentWave = next.wave;
+      if (currentWave > 1) showMessage(`🌶️ 第 ${currentWave} 波来袭！`);
+    }
+
+    createEnemy(next.type);
+    if (next.type === 'boss') showMessage('👹 Boss 提前登场！');
+
+    spawnedEnemies++;
+    if (spawnPlanIndex < enemySpawnPlan.length) spawnPlanIndex++;
+    spawnTimer = spawnInterval;
+  }
+
+  function updateEnemies(dt) {
+    const speedFactor = freezeTimer > 0 ? 0 : 1;
+    for (const enemy of enemies) {
+      if (!enemy.active) continue;
+      enemy.age += dt;
+      if (enemy.hitReaction > 0) enemy.hitReaction -= dt;
+      if (enemy.rageFlash > 0) enemy.rageFlash -= dt;
+      if (enemy.spawnPulse > 0) enemy.spawnPulse -= dt;
+      enemy.previousDistance = enemy.distance;
+      enemy.distance += enemy.speed * dt * speedFactor;
+      const p = pointAtDistance(enemy.distance);
+      enemy.x = p.x;
+      enemy.y = p.y;
+      if (enemy.hitFlash > 0) enemy.hitFlash -= dt;
+      if (enemy.stompTimer > 0 && speedFactor > 0) {
+        enemy.stompTimer -= dt;
+        if (enemy.stompTimer <= 0) {
+          effects.push({
+            kind: 'groundStep',
+            type: enemy.type,
+            x: enemy.x,
+            y: enemy.y + enemy.radius * 0.75,
+            life: enemy.type === 'boss' ? 0.34 : 0.24,
+            maxLife: enemy.type === 'boss' ? 0.34 : 0.24,
+          });
+          enemy.stompTimer = enemy.type === 'boss' ? 1.05 : 1.45;
+        }
+      }
+      if (enemy.distance >= PATH.totalLength) reachGoal(enemy);
+    }
+  }
+
+  function updateProjectiles(dt) {
+    for (const projectile of projectiles) {
+      if (!projectile.active || projectile.mode === 'waitingKick') continue;
+      let sweptRanges = null;
+
+      if (projectile.mode === 'flight') {
+        const speed = PROJECTILE_SPEED * (feverTimer > 0 ? 1.3 : 1);
+        projectile.x += projectile.dir.x * speed * dt;
+        projectile.y += projectile.dir.y * speed * dt;
+
+        const entry = nearestPointOnPath(projectile.x, projectile.y);
+        if (entry.offset <= ROAD.width * 0.56) {
+          projectile.mode = 'path';
+          projectile.pathDistance = entry.distance;
+          projectile.x = entry.point.x;
+          projectile.y = entry.point.y;
+          createBurst(projectile.x, projectile.y, '#ffd66b', 5);
+        } else if (projectile.x < -80 || projectile.x > W + 80 || projectile.y < 260 || projectile.y > H + 80) {
+          projectile.active = false;
+          continue;
+        }
+      } else if (projectile.finisher) {
+        // Sweep both directions to clear every enemy already on the road.
+        sweptRanges = advanceFinisher(projectile, FINISHER_PATH_SPEED * dt);
+        const p = pointAtDistance(projectile.pathDistance);
+        projectile.x = p.x;
+        projectile.y = p.y;
+      } else {
+        projectile.pathDistance -= PATH_PROJECTILE_SPEED * (feverTimer > 0 ? 1.25 : 1) * dt;
+        if (projectile.pathDistance <= 0) {
+          projectile.active = false;
+          continue;
+        }
+        const p = pointAtDistance(projectile.pathDistance);
+        projectile.x = p.x;
+        projectile.y = p.y;
+      }
+
+      if (projectile.mode !== 'path') continue;
+      for (const enemy of enemies) {
+        if (!enemy.active || projectile.alreadyHit.has(enemy.id)) continue;
+        const dx = projectile.x - enemy.x;
+        const dy = projectile.y - enemy.y;
+        const hitRadius = enemy.radius + 28;
+        const crossed = sweptRanges && sweptRanges.some(([from, to]) => {
+          const enemyFrom = Math.min(enemy.previousDistance ?? enemy.distance, enemy.distance);
+          const enemyTo = Math.max(enemy.previousDistance ?? enemy.distance, enemy.distance);
+          return enemyTo >= Math.min(from, to) - hitRadius &&
+            enemyFrom <= Math.max(from, to) + hitRadius;
+        });
+        if (crossed || dx * dx + dy * dy <= hitRadius * hitRadius) {
+          projectile.alreadyHit.add(enemy.id);
+          hitEnemy(enemy, projectile);
+        }
+      }
+    }
+
+    projectiles = projectiles.filter(p => p.active);
+  }
+
+  function advanceFinisher(projectile, travel) {
+    const ranges = [];
+    let remaining = travel;
+    while (remaining > 0) {
+      const from = projectile.pathDistance;
+      const end = projectile.pathDirection > 0 ? PATH.totalLength : 0;
+      const step = Math.min(remaining, Math.abs(end - from));
+      projectile.pathDistance += step * projectile.pathDirection;
+      ranges.push([from, projectile.pathDistance]);
+      remaining -= step;
+      if (projectile.pathDistance === end) projectile.pathDirection *= -1;
+    }
+    return ranges;
+  }
+
+  function hitEnemy(enemy, projectile) {
+    enemy.hp = projectile.finisher ? 0 : enemy.hp - BASE_DAMAGE * (feverTimer > 0 ? 1.2 : 1);
+    enemy.hitFlash = 0.18;
+    enemy.hitReaction = enemy.type === 'boss' ? 0.24 : enemy.type === 'tank' ? 0.20 : 0.17;
+    enemy.rageFlash = 0.18;
+    createHitFire(enemy, projectile.finisher);
+    if (!projectile.hasHit) {
+      projectile.hasHit = true;
+      successfulShots++;
+    }
+    createBurst(enemy.x, enemy.y, enemy.type === 'boss' ? '#ffe58a' : '#ffd15b', 8);
+    combo++;
+    comboTimer = 2;
+    bestCombo = Math.max(bestCombo, combo);
+    playSound('hit', Math.min(1.22, .80 + combo * .035));
+
+    if (combo === 10 && feverTimer <= 0) {
+      feverTimer = 5;
+      showMessage('🔥 辣椒狂热！');
+    } else if ([3, 5, 8].includes(combo)) {
+      showMessage(combo >= 8 ? 'PERFECT!' : combo >= 5 ? 'GREAT!' : 'GOOD!');
+    }
+
+    if (enemy.hp <= 0) killEnemy(enemy, projectile.finisher);
+  }
+
+  function killEnemy(enemy, finishingHit = false) {
+    if (!enemy.active) return;
+    const deathLife = enemy.type === 'boss' ? 0.72 : enemy.type === 'tank' ? 0.50 : 0.38;
+    effects.push({
+      kind: 'enemyDeath',
+      type: enemy.type,
+      x: enemy.x,
+      y: enemy.y,
+      life: deathLife,
+      maxLife: deathLife,
+      rotation: enemy.type === 'fast' ? (Math.random() > 0.5 ? 1 : -1) * 1.15 : (Math.random() - 0.5) * 0.45,
+      finishingHit,
+    });
+    if (enemy.type === 'boss') {
+      effects.push({
+        kind: 'spawnShock',
+        x: enemy.x,
+        y: enemy.y + enemy.radius * 0.62,
+        life: 0.85,
+        maxLife: 0.85,
+        radius: 36,
+        death: true,
+      });
+      createBurst(enemy.x, enemy.y, '#ffb43f', finishingHit ? 32 : 24);
+    }
+    enemy.active = false;
+    defeatedEnemies++;
+    createBurst(enemy.x, enemy.y, finishingHit ? '#ffe47a' : enemy.type === 'tank' ? '#9fd4ff' : enemy.type === 'fast' ? '#b98cff' : '#ff8b75', finishingHit ? 24 : 14);
+    playSound(enemy.type === 'boss' ? 'bossKill' : 'kill');
+  }
+
+  function reachGoal(enemy) {
+    if (!enemy.active) return;
+    enemy.active = false;
+    lives--;
+    combo = 0;
+    comboTimer = 0;
+    catHitTimer = 0.22;
+    showMessage('小猫咪受伤！');
+    playSound('damage');
+  }
+
+  function updateCarrotBumps(dt) {
+    for (const carrot of carrots) {
+      if (!carrot.active || carrot.bumpTime <= 0) continue;
+      carrot.bumpTime -= dt;
+      const d = DIRS[carrot.dir];
+      const phase = Math.sin(((0.24 - carrot.bumpTime) / 0.24) * Math.PI * 2);
+      carrot.x = carrot.baseX + d.x * phase * 11;
+      carrot.y = carrot.baseY + d.y * phase * 11;
+      if (carrot.bumpTime <= 0) {
+        carrot.x = carrot.baseX;
+        carrot.y = carrot.baseY;
+      }
+    }
+  }
+
+  function updateEffects(dt) {
+    for (const fx of effects) {
+      fx.life -= dt;
+      if (fx.kind === 'fire') {
+        if (fx.enemy.active) {
+          const foot = enemyFootPoint(fx.enemy);
+          fx.x = foot.x;
+          fx.y = foot.y;
+        }
+        continue;
+      }
+      if (fx.kind === 'kick' || fx.kind === 'enemyDeath' || fx.kind === 'spawnShock' || fx.kind === 'groundStep') continue;
+      fx.x += fx.vx * dt;
+      fx.y += fx.vy * dt;
+      fx.vy += 210 * dt;
+    }
+    effects = effects.filter(f => f.life > 0);
+  }
+
+  function updateCombo(dt) {
+    if (combo <= 0) return;
+    comboTimer -= dt;
+    if (comboTimer <= 0) combo = 0;
+  }
+
+  function updateHint(now) {
+    if (level >= 2) {
+      hintTarget = null;
+      hintUntil = 0;
+      return;
+    }
+
+    if (now - lastHintAt < 3200) return;
+    lastHintAt = now;
+    const available = carrots.filter(c => c.active && !isBlocked(c));
+    if (!available.length) return;
+    hintTarget = available[Math.floor(Math.random() * available.length)];
+    hintUntil = now + 700;
+  }
+
+  function checkEndState() {
+    if (lives <= 0) {
+      finishLevel(false);
+      return;
+    }
+
+    const activeEnemies = enemies.some(e => e.active);
+    if (!finisherLaunched || activeEnemies) return;
+    // Even if the road is empty, let the last kick finish before the modal.
+    if (catAction || projectiles.some(p => p.active && p.mode === 'waitingKick')) return;
+
+    // The puzzle is the objective in every level. Missed enemies cost lives;
+    // a living cat wins after the board and the remaining enemies are cleared.
+    if (getClearedPepperCount() === carrots.length) finishLevel(true);
+  }
+
+  function finishLevel(won) {
+    if (gameState !== 'playing') return;
+    gameState = won ? 'won' : 'lost';
+    if (won) unlockLevel(level + 1);
+    catAction = null;
+    catPosition = { ...CAT_HOME };
+    projectiles = projectiles.filter(p => p.mode !== 'waitingKick');
+    DOM.resultModal.dataset.result = won ? 'win' : 'loss';
+    DOM.resultIcon.textContent = '';
+    DOM.resultIcon.setAttribute('aria-label', won ? '胜利小猫' : '失落小猫');
+    DOM.resultTitle.textContent = won ? '守住了！' : '差一点！';
+    DOM.resultSubtitle.textContent = won ? '怪椒退散，果园安全！' : '';
+    const accuracy = shots > 0 ? Math.round(successfulShots / shots * 100) : 0;
+    DOM.accuracyValue.textContent = `${accuracy}%`;
+    DOM.bestComboValue.textContent = String(bestCombo);
+    DOM.lifeValue.textContent = String(Math.max(0, lives));
+    DOM.primaryResultButton.style.display = won ? '' : 'none';
+    DOM.retryButton.textContent = '重玩本关';
+    fitResultArt();
+    DOM.resultModal.classList.remove('hidden');
+    playSound(won ? 'win' : 'loss');
+  }
+
+  function onPointerDown(event) {
+    if (gameState !== 'playing') return;
+    unlockAudio();
+    event.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width * W;
+    const y = (event.clientY - rect.top) / rect.height * H;
+
+    let target = null;
+    let bestDist = Infinity;
+    for (const carrot of carrots) {
+      if (!carrot.active) continue;
+      const dx = x - carrot.x;
+      const dy = y - carrot.y;
+      const dist = dx * dx + dy * dy;
+      if (dist < 48 * 48 && dist < bestDist) {
+        target = carrot;
+        bestDist = dist;
+      }
+    }
+    if (!target) return;
+
+    if (toolMode === 'hammer' && toolsLeft.hammer > 0) {
+      if (getFinalPepper() === target) {
+        toolMode = null;
+        updateToolButtons();
+        launchCarrot(target);
+        return;
+      }
+      if (!removeCarrot(target)) return;
+      toolsLeft.hammer--;
+      toolMode = null;
+      updateToolButtons();
+      if (!finisherReady) showMessage('清除阻挡！');
+      return;
+    }
+
+    launchCarrot(target);
+  }
+
+  function launchCarrot(carrot) {
+    if (!carrot.active || gameState !== 'playing') return false;
+    const blocker = findBlockingCarrot(carrot);
+    if (blocker) {
+      carrot.bumpTime = 0.24;
+      // Point to the EXACT pepper obstructing the chosen direction.
+      // This short feedback is drawn near the peppers instead of a global
+      // message covering enemies or the road; no damage logic is changed.
+      blockingHint = { source: carrot, target: blocker, life: 0.58, maxLife: 0.58 };
+      playSound('blocked');
+      return false;
+    }
+
+    const finisher = getFinalPepper() === carrot;
+    carrot.active = false;
+    carrotByCell.delete(cellKey(carrot.row, carrot.col));
+    const dir = DIRS[carrot.dir];
+    shots++;
+    projectiles.push({
+      x: carrot.x,
+      y: carrot.y,
+      dir,
+      baseDir: carrot.dir,
+      type: carrot.type,
+      mode: 'waitingKick',
+      pathDistance: 0,
+      pathDirection: -1,
+      finisher,
+      active: true,
+      alreadyHit: new Set(),
+      hasHit: false,
+    });
+    if (finisher) {
+      finisherLaunched = true;
+      toolMode = null;
+    }
+    // Reserve immediately so rapid valid taps keep their unlock order. The
+    // pepper stays visibly in place until our single cat actually kicks it.
+    if (!catAction || catAction.kind === 'return') startNextCatKick();
+    updateFinisherReady();
+    updateToolButtons();
+    tutorialDismissTimer = Math.min(tutorialDismissTimer, 0.7);
+    return true;
+  }
+
+  function startNextCatKick() {
+    const projectile = projectiles.find(p => p.active && p.mode === 'waitingKick');
+    if (!projectile) return;
+    const to = {
+      x: projectile.x - projectile.dir.x * CAT_KICK.behind,
+      y: projectile.y - projectile.dir.y * CAT_KICK.behind,
+    };
+    catAction = {
+      kind: 'kick', projectile, from: { ...catPosition }, to,
+      travel: clamp(Math.hypot(to.x - catPosition.x, to.y - catPosition.y) / 3200, 0.12, 0.22),
+      age: 0, struck: false,
+    };
+  }
+
+  function updateCatKick(dt) {
+    if (!catAction) return;
+    const action = catAction;
+    action.age += dt;
+    const duration = action.kind === 'return' ? CAT_KICK.returnTime : action.travel;
+    const t = clamp(action.age / duration, 0, 1);
+    const ease = t * t * (3 - 2 * t);
+    catPosition.x = lerp(action.from.x, action.to.x, ease);
+    catPosition.y = lerp(action.from.y, action.to.y, ease) - Math.sin(t * Math.PI) * 52;
+    if (action.kind === 'return') {
+      if (t === 1) { catPosition = { ...CAT_HOME }; catAction = null; }
+      return;
+    }
+
+    const impactAt = action.travel + CAT_KICK.windup + CAT_KICK.strike;
+    if (!action.struck && action.age >= impactAt) {
+      action.struck = true;
+      const projectile = action.projectile;
+      projectile.mode = 'flight';
+      effects.push({
+        kind: 'kick', x: projectile.x - projectile.dir.x * 30,
+        y: projectile.y - projectile.dir.y * 30,
+        life: 0.20, maxLife: 0.20, angle: Math.atan2(projectile.dir.y, projectile.dir.x),
+        finisher: projectile.finisher,
+      });
+      createBurst(projectile.x - projectile.dir.x * 28, projectile.y - projectile.dir.y * 28, '#fff2a8', 6);
+      playSound(projectile.finisher ? 'finisher' : 'kick');
+      if (projectile.finisher) showMessage('🌟 终结椒出击！触碰即秒杀');
+    }
+    if (action.age >= impactAt + CAT_KICK.recovery) {
+      if (projectiles.some(p => p.active && p.mode === 'waitingKick')) startNextCatKick();
+      else catAction = { kind: 'return', from: { ...catPosition }, to: { ...CAT_HOME }, age: 0 };
+    }
+  }
+
+  function enemyFootPoint(enemy) {
+    const size = enemyVisualSize(enemy.type);
+    const yOffset = enemyVisualYOffset(enemy.type);
+    const ratio = enemy.type === 'fast' ? 0.30
+      : enemy.type === 'boss' ? 0.34
+      : enemy.type === 'tank' ? 0.34
+      : 0.36;
+    return { x: enemy.x, y: enemy.y + yOffset + size * ratio };
+  }
+
+  function createHitFire(enemy, finisher = false) {
+    const existing = effects.find(fx => fx.kind === 'fire' && fx.enemy === enemy);
+    const fire = existing || { kind: 'fire', enemy, seed: Math.random() * 1000 };
+    const foot = enemyFootPoint(enemy);
+    fire.finisher = Boolean(finisher || fire.finisher);
+    fire.type = enemy.type;
+    fire.life = fire.maxLife = fire.finisher ? 0.72 : 0.52;
+    fire.x = foot.x;
+    fire.y = foot.y;
+    const baseWidth = enemy.type === 'boss' ? 48 : enemy.type === 'tank' ? 38 : enemy.type === 'fast' ? 28 : 34;
+    const baseHeight = enemy.type === 'boss' ? 32 : enemy.type === 'tank' ? 27 : enemy.type === 'fast' ? 22 : 25;
+    fire.width = baseWidth * (fire.finisher ? 1.18 : 1);
+    fire.height = baseHeight * (fire.finisher ? 1.22 : 1);
+    if (!existing) effects.push(fire);
+  }
+
+  function removeCarrot(carrot) {
+    // Never spend a hammer to destroy the only finisher.
+    if (!carrot.active || getFinalPepper() === carrot) return false;
+    carrot.active = false;
+    carrotByCell.delete(cellKey(carrot.row, carrot.col));
+    createBurst(carrot.x, carrot.y, '#f7df72', 9);
+    updateFinisherReady();
+    return true;
+  }
+
+  function getFinalPepper() {
+    let last = null;
+    for (const carrot of carrots) {
+      if (!carrot.active) continue;
+      if (last) return null;
+      last = carrot;
+    }
+    return last;
+  }
+
+  function updateFinisherReady() {
+    const ready = Boolean(getFinalPepper());
+    if (ready && !finisherReady) showMessage('🌟 最后一颗！终结椒已觉醒');
+    finisherReady = ready;
+  }
+
+  function findBlockingCarrot(carrot) {
+    const d = DIRS[carrot.dir];
+    let r = carrot.row + d.dr;
+    let c = carrot.col + d.dc;
+    while (r >= 0 && r < BOARD.rows && c >= 0 && c < BOARD.cols) {
+      const other = carrotByCell.get(cellKey(r, c));
+      if (other && other.active) return other;
+      r += d.dr;
+      c += d.dc;
+    }
+    return null;
+  }
+
+  function isBlocked(carrot) {
+    return Boolean(findBlockingCarrot(carrot));
+  }
+
+  function toggleTool(name) {
+    if (gameState !== 'playing' || toolsLeft[name] <= 0) return;
+    toolMode = toolMode === name ? null : name;
+    updateToolButtons();
+    if (toolMode === 'hammer') showMessage('选择一根辣椒移除');
+    playSound('toolSelect');
+  }
+
+  function useFreeze() {
+    if (gameState !== 'playing' || toolsLeft.freeze <= 0) return;
+    toolsLeft.freeze--;
+    freezeTimer = 3;
+    toolMode = null;
+    updateToolButtons();
+    showMessage('❄️ 冻结 3 秒');
+    playSound('freeze');
+  }
+
+  function useBomb() {
+    if (gameState !== 'playing' || toolsLeft.bomb <= 0) return;
+    toolsLeft.bomb--;
+    toolMode = null;
+    updateToolButtons();
+    for (const enemy of enemies) {
+      if (!enemy.active) continue;
+      enemy.hp -= 12;
+      createBurst(enemy.x, enemy.y, '#ffe26c', 7);
+      if (enemy.hp <= 0) killEnemy(enemy);
+    }
+    showMessage('💥 全屏轰炸！');
+    playSound('bomb');
+  }
+
+  function updateToolButtons() {
+    DOM.hammerCount.textContent = `×${toolsLeft.hammer}`;
+    DOM.freezeCount.textContent = `×${toolsLeft.freeze}`;
+    DOM.bombCount.textContent = `×${toolsLeft.bomb}`;
+    DOM.hammerButton.setAttribute('aria-label', `移除 x${toolsLeft.hammer}`);
+    DOM.freezeButton.setAttribute('aria-label', `冰冻 x${toolsLeft.freeze}`);
+    DOM.bombButton.setAttribute('aria-label', `炸弹 x${toolsLeft.bomb}`);
+    DOM.hammerButton.disabled = toolsLeft.hammer <= 0 || finisherReady || finisherLaunched;
+    DOM.freezeButton.disabled = toolsLeft.freeze <= 0;
+    DOM.bombButton.disabled = toolsLeft.bomb <= 0;
+    DOM.hammerButton.classList.toggle('active', toolMode === 'hammer');
+  }
+
+  function updateHUD() {
+    const hearts = DOM.lives.querySelectorAll('.life-heart');
+    hearts.forEach((heart, index) => {
+      heart.classList.toggle('lost', index >= Math.max(0, lives));
+    });
+    const remaining = carrots.length - getClearedPepperCount();
+    const remainingEnemies = enemies.filter(e => e.active).length;
+    const waveText = finisherLaunched
+      ? `终结椒清场 · 剩余怪物 ${remainingEnemies}`
+      : `辣椒 ${remaining} / ${carrots.length} · 已击退 ${defeatedEnemies}`;
+    if (DOM.waveLabel.textContent !== waveText) DOM.waveLabel.textContent = waveText;
+    const comboText = feverTimer > 0 ? `🔥${Math.ceil(feverTimer)}` : `×${combo}`;
+    if (DOM.comboLabel.textContent !== comboText) DOM.comboLabel.textContent = comboText;
+    const comboBoard = DOM.comboLabel.parentElement;
+    const comboVisible = combo >= 2 || feverTimer > 0;
+    if (comboBoard && comboBoard.classList.contains('visible') !== comboVisible) {
+      comboBoard.classList.toggle('visible', comboVisible);
+      comboBoard.classList.toggle('hot', comboVisible);
+      comboBoard.setAttribute('aria-hidden', String(!comboVisible));
+    }
+  }
+
+  function render(now) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(backgroundCanvas, 0, 0);
+
+    if (!catAction) drawCat(ctx, 100, 425, catHitTimer > 0 ? 0.9 : 1);
+    else drawCatCrate(ctx);
+
+    const profile = getLevelProfile(level);
+    const finalPepper = getFinalPepper();
+    for (const carrot of carrots) {
+      if (!carrot.active) continue;
+      let scale = profile ? profile.pepperScale : 1;
+      if (hintTarget === carrot && now < hintUntil) scale *= 1 + Math.sin((hintUntil - now) * 0.025) * 0.08;
+      if (carrot === finalPepper) {
+        drawFinisherAura(ctx, carrot.x, carrot.y, now, true);
+        scale *= 1.18;
+      }
+      drawChili(ctx, carrot.x, carrot.y, DIRS[carrot.dir].angle, scale, carrot.type === 'pierce');
+    }
+
+    if (blockingHint) drawBlockingHint(ctx, blockingHint, now);
+
+    for (const projectile of projectiles) {
+      if (!projectile.active) continue;
+      let angle = DIRS[projectile.baseDir].angle;
+      if (projectile.mode === 'path') {
+        const tangent = tangentAtDistance(projectile.pathDistance, projectile.pathDirection ?? -1);
+        angle = Math.atan2(tangent.y, tangent.x) + Math.PI / 2;
+      }
+      if (projectile.finisher) drawFinisherAura(ctx, projectile.x, projectile.y, now, false);
+      const waiting = projectile.mode === 'waitingKick';
+      const scale = projectile.finisher ? 1.3 : waiting && profile ? profile.pepperScale : 1;
+      drawChili(ctx, projectile.x, projectile.y, angle, scale, projectile.type === 'pierce');
+      if (waiting) {
+        ctx.strokeStyle = '#fff4c5';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(projectile.x, projectile.y, 39, -Math.PI / 2, Math.PI * 1.5);
+        ctx.stroke();
+      }
+    }
+
+    for (const enemy of enemies) {
+      if (!enemy.active) continue;
+      drawMonster(ctx, enemy);
+    }
+
+    for (const fx of effects) {
+      if (fx.kind === 'fire') { drawHitFire(ctx, fx, now); continue; }
+      if (fx.kind === 'kick') { drawKickImpact(ctx, fx); continue; }
+      if (fx.kind === 'enemyDeath') { drawEnemyDeath(ctx, fx, now); continue; }
+      if (fx.kind === 'spawnShock') { drawEnemyShock(ctx, fx); continue; }
+      if (fx.kind === 'groundStep') { drawEnemyGroundStep(ctx, fx); continue; }
+      ctx.globalAlpha = clamp(fx.life / fx.maxLife, 0, 1);
+      ctx.fillStyle = fx.color;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, fx.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (catAction) drawKickingCat(ctx);
+  }
+
+  function drawBlockingHint(g, hint, now) {
+    if (!hint.source.active || !hint.target.active) return;
+    const fade = Math.min(1, hint.life / 0.17);
+    const pulse = 1 + Math.sin(now * 0.024) * 0.045;
+    const sx = hint.source.baseX, sy = hint.source.baseY;
+    const tx = hint.target.baseX, ty = hint.target.baseY;
+    const dx = tx - sx, dy = ty - sy;
+    const distance = Math.hypot(dx, dy) || 1;
+    const nx = dx / distance, ny = dy / distance;
+    g.save();
+    g.globalAlpha = fade * 0.86;
+    g.strokeStyle = '#ffeb94';
+    g.lineWidth = 5;
+    g.lineCap = 'round';
+    g.shadowBlur = 9;
+    g.shadowColor = '#d95a17';
+    g.setLineDash([12, 9]);
+    g.beginPath();
+    g.moveTo(sx + nx * 37, sy + ny * 37);
+    g.lineTo(tx - nx * 37, ty - ny * 37);
+    g.stroke();
+    g.setLineDash([]);
+    g.lineWidth = 5;
+    g.strokeStyle = '#ffb739';
+    g.beginPath();
+    g.arc(tx, ty, 42 * pulse, 0, Math.PI * 2);
+    g.stroke();
+    g.strokeStyle = '#fff4b1';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(tx, ty, 47 * pulse, 0, Math.PI * 2);
+    g.stroke();
+    g.restore();
+  }
+
+  function drawFinisherAura(g, x, y, now, waiting) {
+    const phase = now / 650;
+    const radius = 52 + Math.sin(phase * 2) * 5;
+    g.save();
+    const glow = g.createRadialGradient(x, y, 12, x, y, radius + 22);
+    glow.addColorStop(0, '#fff8c7dd');
+    glow.addColorStop(0.55, '#ffd34f88');
+    glow.addColorStop(1, '#ffd34f00');
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(x, y, radius + 22, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#fff3a2';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(x, y, radius, phase, phase + Math.PI * 1.65);
+    g.stroke();
+    g.fillStyle = '#fffbe0';
+    for (let i = 0; i < 5; i++) {
+      const a = phase + i * Math.PI * 2 / 5;
+      const sx = x + Math.cos(a) * (radius + 5);
+      const sy = y + Math.sin(a) * (radius + 5);
+      g.beginPath();
+      g.moveTo(sx, sy - 7);
+      g.lineTo(sx + 4, sy);
+      g.lineTo(sx, sy + 7);
+      g.lineTo(sx - 4, sy);
+      g.closePath();
+      g.fill();
+    }
+    if (waiting) {
+      g.font = 'bold 25px sans-serif';
+      g.textAlign = 'center';
+      g.lineWidth = 6;
+      g.strokeStyle = '#785020';
+      g.strokeText('终结椒', x, y - 70);
+      g.fillStyle = '#fff1a1';
+      g.fillText('终结椒', x, y - 70);
+    }
+    g.restore();
+  }
+
+  function drawSprite(g, key, dx, dy, dw, dh) {
+    if (!assetSheet) return false;
+    const sprite = SPRITES[key];
+    if (!sprite) return false;
+    const [sx, sy, sw, sh] = sprite;
+    g.drawImage(assetSheet, sx, sy, sw, sh, dx, dy, dw, dh);
+    return true;
+  }
+
+  function drawChili(g, x, y, angle, scale = 1, pierce = false) {
+    if (assetSheet) {
+      g.save();
+      g.translate(x, y);
+      // 源素材朝右下约 45°；现有方向角 0 代表朝上。
+      g.rotate(angle - Math.PI * 0.75);
+      g.scale(scale, scale);
+      drawSprite(g, 'chili', -57, -57, 114, 114);
+      if (pierce) {
+        g.strokeStyle = '#ffe15a';
+        g.lineWidth = 6;
+        g.beginPath();
+        g.ellipse(0, 0, 32, 12, 0, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.restore();
+      return;
+    }
+
+    // 素材加载失败时的轻量兜底，保证游戏仍可玩。
+    g.save();
+    g.translate(x, y);
+    g.rotate(angle);
+    g.scale(scale, scale);
+    g.fillStyle = pierce ? '#ff5a31' : '#ef3d2f';
+    g.strokeStyle = '#8f271f';
+    g.lineWidth = 5;
+    g.beginPath();
+    g.moveTo(0, -48);
+    g.bezierCurveTo(-28, -25, -36, 10, -18, 36);
+    g.bezierCurveTo(0, 54, 29, 44, 33, 17);
+    g.bezierCurveTo(36, -9, 15, -24, 0, -48);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#2f9e42';
+    g.beginPath();
+    g.ellipse(0, 43, 22, 11, 0, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+
+  function drawCat(g, x, y, scale = 1) {
+    if (assetSheet) {
+      g.save();
+      g.translate(x, y);
+      g.scale(scale, 1 + (1 - scale) * 0.8);
+      drawSprite(g, 'cat', -82, -118, 164, 164);
+      g.restore();
+      return;
+    }
+
+    g.save();
+    g.translate(x, y);
+    g.scale(scale, scale);
+    g.fillStyle = '#f49a42';
+    g.strokeStyle = '#7e482a';
+    g.lineWidth = 5;
+    g.beginPath();
+    g.arc(0, -12, 44, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#fff';
+    [-15, 15].forEach(ex => { g.beginPath(); g.arc(ex, -20, 8, 0, Math.PI * 2); g.fill(); });
+    g.restore();
+  }
+
+  function drawCatCrate(g) {
+    // Leave the original perch behind while the same cat flies out.
+    if (assetSheet) g.drawImage(assetSheet, 90, 750, 200, 115, 59, 416, 91, 52);
+  }
+
+  function drawKickingCat(g) {
+    const action = catAction;
+    const returning = action.kind === 'return';
+    const dir = returning ? { x: -1, y: 0 } : action.projectile.dir;
+    const moving = returning || action.age < action.travel;
+    const kickTime = returning ? 0 : action.age - action.travel;
+    const impactAt = CAT_KICK.windup + CAT_KICK.strike;
+    const extension = moving || kickTime < CAT_KICK.windup ? 0
+      : kickTime < impactAt ? (kickTime - CAT_KICK.windup) / CAT_KICK.strike
+        : 1 - clamp((kickTime - impactAt) / CAT_KICK.recovery, 0, 1);
+    const windup = !moving && kickTime < CAT_KICK.windup ? Math.sin(kickTime / CAT_KICK.windup * Math.PI) : 0;
+    g.save();
+    g.globalAlpha = 1;
+
+    // Short speed streaks follow the cat, without drawing across the puzzle.
+    if (moving) {
+      const angle = Math.atan2(action.to.y - action.from.y, action.to.x - action.from.x);
+      g.save();
+      g.translate(catPosition.x, catPosition.y);
+      g.rotate(angle);
+      g.strokeStyle = '#fff7cfbb';
+      g.lineCap = 'round';
+      for (let i = -1; i <= 1; i++) {
+        g.lineWidth = i === 0 ? 7 : 4;
+        g.beginPath();
+        g.moveTo(-58, i * 18);
+        g.lineTo(-94 - (i === 0 ? 20 : 0), i * 18);
+        g.stroke();
+      }
+      g.restore();
+    }
+    g.fillStyle = '#53321725';
+    g.beginPath();
+    g.ellipse(catPosition.x, catPosition.y + 58, 38, 10, 0, 0, Math.PI * 2);
+    g.fill();
+    g.translate(catPosition.x, catPosition.y);
+    g.rotate(dir.x === 0 ? Math.atan2(dir.y, dir.x) : 0);
+    g.scale(dir.x < 0 ? -1 : 1, 1);
+
+    g.save();
+    g.translate(-windup * 6 - extension * 4, 0);
+    g.rotate(-extension * 0.16);
+    g.scale(moving ? 1.08 : 1 + windup * 0.08, moving ? 0.94 : 1 - windup * 0.1);
+    if (assetSheet) {
+      // Reuse the character art, clipping around the paws to exclude its box.
+      g.translate(-57, -67);
+      g.scale(0.46, 0.46);
+      g.beginPath();
+      g.moveTo(0, 0); g.lineTo(265, 0); g.lineTo(265, 224);
+      g.lineTo(211, 225); g.lineTo(205, 246); g.lineTo(175, 260);
+      g.lineTo(83, 260); g.lineTo(72, 230); g.lineTo(0, 221);
+      g.closePath();
+      g.clip();
+      g.drawImage(assetSheet, 50, 510, 265, 260, 0, 0, 265, 260);
+    } else {
+      drawCat(g, 0, 5, 1);
+    }
+    g.restore();
+
+    // An articulated hind leg makes the contact a kick, not a body collision.
+    const pawX = lerp(9 - windup * 10, 52, extension);
+    const pawY = lerp(34, 0, extension);
+    g.lineCap = 'round';
+    for (const [color, width] of [['#8d4b25', 21], ['#fff1ce', 15]]) {
+      g.strokeStyle = color;
+      g.lineWidth = width;
+      g.beginPath();
+      g.moveTo(4, 22);
+      g.quadraticCurveTo(24, 32 - extension * 12, pawX, pawY);
+      g.stroke();
+    }
+    g.fillStyle = '#fff6dc';
+    g.strokeStyle = '#8d4b25';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.ellipse(pawX + 3, pawY, 14, 12, -extension * 0.25, 0, Math.PI * 2);
+    g.fill(); g.stroke();
+    g.fillStyle = '#ee9b97';
+    g.beginPath(); g.ellipse(pawX + 8, pawY + 1, 5, 6, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+
+  function drawKickImpact(g, fx) {
+    const t = 1 - fx.life / fx.maxLife;
+    g.save();
+    g.globalAlpha = clamp(fx.life / 0.12, 0, 1);
+    g.translate(fx.x, fx.y);
+    g.rotate(fx.angle);
+    g.scale(0.65 + t * 0.65, 0.65 + t * 0.65);
+    g.fillStyle = fx.finisher ? '#fffbc5' : '#fff4d1';
+    g.strokeStyle = fx.finisher ? '#ffad1e' : '#f39234';
+    g.lineWidth = 3;
+    g.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const a = i * Math.PI / 8;
+      const radius = i % 2 ? 12 : 30;
+      const x = Math.cos(a) * radius;
+      const y = Math.sin(a) * radius;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.closePath(); g.fill(); g.stroke();
+    g.restore();
+  }
+
+  function drawHitFire(g, fx, now) {
+    const lifeAlpha = clamp(fx.life / 0.18, 0, 1);
+    const pulse = 0.94 + Math.sin(now * 0.012 + fx.seed) * 0.06;
+    g.save();
+    g.translate(fx.x, fx.y);
+    g.globalAlpha = lifeAlpha;
+
+    const groundGlow = g.createRadialGradient(0, 1, 2, 0, 1, fx.width * 1.45);
+    groundGlow.addColorStop(0, fx.finisher ? '#fff5a6cc' : '#ffc24daa');
+    groundGlow.addColorStop(0.45, fx.finisher ? '#ff9d34a8' : '#ff6b2f88');
+    groundGlow.addColorStop(1, '#7f210000');
+    g.fillStyle = groundGlow;
+    g.beginPath();
+    g.ellipse(0, 2, fx.width * 1.35, 8 + fx.width * 0.05, 0, 0, Math.PI * 2);
+    g.fill();
+
+    g.globalAlpha = lifeAlpha * 0.48;
+    g.strokeStyle = fx.finisher ? '#ffb52f' : '#b83f25';
+    g.lineWidth = 2.5;
+    g.beginPath();
+    g.ellipse(0, 3, fx.width * 0.98, 5.5, 0, 0, Math.PI * 2);
+    g.stroke();
+
+    const lobes = fx.finisher ? 5 : 4;
+    for (let i = 0; i < lobes; i++) {
+      const u = lobes === 1 ? 0 : i / (lobes - 1);
+      const x = (u - 0.5) * fx.width * 1.55;
+      const centerWeight = 1 - Math.abs(u - 0.5) * 0.72;
+      const phase = now * 0.015 + fx.seed + i * 1.73;
+      const h = fx.height * centerWeight * pulse + Math.sin(phase) * 2.4;
+      const w = fx.width * (0.27 + centerWeight * 0.07);
+      const sway = Math.sin(phase * 0.82) * 3.2;
+      g.save();
+      g.translate(x, 0);
+      g.globalAlpha = lifeAlpha;
+      g.shadowBlur = fx.finisher ? 12 : 8;
+      g.shadowColor = fx.finisher ? '#ffd24a' : '#ff6a2b';
+      const flame = g.createLinearGradient(0, 2, 0, -h);
+      flame.addColorStop(0, '#e83b20');
+      flame.addColorStop(0.42, '#ff7a24');
+      flame.addColorStop(0.72, '#ffc33e');
+      flame.addColorStop(1, '#fff2a4');
+      g.fillStyle = flame;
+      g.beginPath();
+      g.moveTo(-w * 0.56, 2);
+      g.bezierCurveTo(-w * 0.95, -h * 0.24, -w * 0.15 + sway, -h * 0.58, sway, -h);
+      g.bezierCurveTo(w * 0.48 + sway, -h * 0.62, w * 0.92, -h * 0.22, w * 0.56, 2);
+      g.closePath();
+      g.fill();
+      g.shadowBlur = 0;
+      g.fillStyle = '#fff3a6';
+      g.globalAlpha = lifeAlpha * 0.88;
+      g.beginPath();
+      g.moveTo(-w * 0.22, 1);
+      g.quadraticCurveTo(-w * 0.28, -h * 0.18, sway * 0.25, -h * 0.52);
+      g.quadraticCurveTo(w * 0.26, -h * 0.18, w * 0.22, 1);
+      g.closePath();
+      g.fill();
+      g.restore();
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const rise = (now * 0.00145 + fx.seed * 0.01 + i * 0.31) % 1;
+      g.globalAlpha = (1 - rise) * lifeAlpha * 0.75;
+      g.fillStyle = i === 1 ? '#fff0a2' : '#ff9b31';
+      g.beginPath();
+      g.arc(Math.sin(fx.seed + i * 2.7 + rise * 4) * fx.width * 0.68, -8 - rise * (fx.height + 13), 1.5 + (1 - rise) * 1.1, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+  }
+
+  function enemyVisualSize(type) {
+    if (type === 'boss') return 180;
+    if (type === 'tank') return 128;
+    if (type === 'fast') return 104;
+    return 112;
+  }
+
+  function enemyVisualYOffset(type) {
+    if (type === 'boss') return -8;
+    if (type === 'fast') return -7;
+    if (type === 'tank') return 3;
+    return 0;
+  }
+
+  function drawEnemyShock(g, fx) {
+    const t = 1 - fx.life / fx.maxLife;
+    const radius = fx.radius + t * (fx.death ? 92 : 68);
+    g.save();
+    g.globalAlpha = (1 - t) * (fx.death ? 0.7 : 0.48);
+    g.translate(fx.x, fx.y);
+    g.strokeStyle = fx.death ? '#ff7d2f' : '#f3b74d';
+    g.lineWidth = fx.death ? 8 - t * 4 : 6 - t * 3;
+    g.beginPath();
+    g.ellipse(0, 0, radius, radius * 0.30, 0, 0, Math.PI * 2);
+    g.stroke();
+    if (fx.death) {
+      g.strokeStyle = '#ffd36f';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.ellipse(0, 0, radius * 0.72, radius * 0.20, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  function drawEnemyGroundStep(g, fx) {
+    const t = 1 - fx.life / fx.maxLife;
+    const boss = fx.type === 'boss';
+    const radius = (boss ? 32 : 22) + t * (boss ? 34 : 22);
+    g.save();
+    g.translate(fx.x, fx.y);
+    g.globalAlpha = (1 - t) * (boss ? 0.34 : 0.22);
+    g.strokeStyle = boss ? '#ff9c42' : '#7396a3';
+    g.lineWidth = boss ? 5 : 3;
+    g.beginPath();
+    g.ellipse(0, 0, radius, radius * 0.28, 0, 0, Math.PI * 2);
+    g.stroke();
+    g.fillStyle = boss ? '#7c4b31' : '#65767b';
+    for (let i = 0; i < (boss ? 5 : 3); i++) {
+      const a = (i / (boss ? 5 : 3)) * Math.PI * 2 + 0.5;
+      const rr = radius * (0.55 + 0.15 * Math.sin(i * 2.1));
+      const px = Math.cos(a) * rr;
+      const py = Math.sin(a) * rr * 0.24 - t * (boss ? 7 : 4);
+      g.beginPath();
+      g.arc(px, py, boss ? 3.5 : 2.5, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+  }
+
+  function drawEnemyDeath(g, fx, now) {
+    const art = enemyArt[fx.type];
+    if (!art) return;
+    const t = 1 - fx.life / fx.maxLife;
+    const size = enemyVisualSize(fx.type);
+    let y = fx.y;
+    let rotation = fx.rotation * t;
+    let sx = 1;
+    let sy = 1;
+    let alpha = clamp(fx.life / (fx.maxLife * 0.72), 0, 1);
+
+    if (fx.type === 'fast') {
+      y -= t * 38;
+      rotation *= 1.8;
+      sx = sy = 1 - t * 0.42;
+    } else if (fx.type === 'tank') {
+      y += t * 13;
+      sx = 1 + t * 0.16;
+      sy = 1 - t * 0.52;
+      rotation *= 0.35;
+    } else if (fx.type === 'boss') {
+      const collapse = t < 0.42 ? 1 + t * 0.10 : 1.042 - (t - 0.42) * 0.48;
+      sx = collapse;
+      sy = t < 0.35 ? 1 + t * 0.05 : Math.max(0.34, 1.02 - (t - 0.35) * 0.95);
+      y += t * 18;
+      rotation *= 0.18;
+      alpha = clamp(fx.life / (fx.maxLife * 0.42), 0, 1);
+    } else {
+      y += t * 18;
+      rotation *= 0.8;
+      sx = 1 + t * 0.08;
+      sy = 1 - t * 0.38;
+    }
+
+    g.save();
+    g.globalAlpha = alpha;
+    g.translate(fx.x, y);
+    g.rotate(rotation);
+    g.scale(sx, sy);
+    if (fx.finishingHit) g.filter = 'brightness(1.5) saturate(1.35)';
+    else if (fx.type === 'boss') g.filter = 'saturate(1.3) contrast(1.08)';
+    g.drawImage(art, -size / 2, -size / 2, size, size);
+    g.restore();
+  }
+
+  function drawMonster(g, enemy) {
+    const flash = enemy.hitFlash > 0;
+    const now = performance.now() / 1000;
+    const typePhase = enemy.type === 'fast' ? 2.6 : enemy.type === 'boss' ? 0.8 : enemy.type === 'tank' ? 1.25 : 1.65;
+    const hpRatio = enemy.maxHp > 0 ? clamp(enemy.hp / enemy.maxHp, 0, 1) : 1;
+    const lowHp = hpRatio <= 0.35;
+    const bob = Math.sin(now * typePhase * 3 + enemy.distance * 0.022) * (enemy.type === 'tank' ? 1.2 : enemy.type === 'boss' ? 1.7 : 2.4);
+    const breathe = 1 + Math.sin(now * typePhase * 2.1 + enemy.distance * 0.012) * (enemy.type === 'boss' ? 0.026 : 0.04);
+    const rageBeat = lowHp ? 1 + Math.max(0, Math.sin(now * (enemy.type === 'boss' ? 7.5 : 9))) * (enemy.type === 'boss' ? 0.055 : 0.035) : 1;
+    const hitPulse = flash ? 1 + Math.sin(enemy.hitFlash * 45) * 0.08 : 1;
+    const spawnScale = enemy.spawnPulse > 0 ? 1 - clamp(enemy.spawnPulse / (enemy.type === 'boss' ? 0.55 : 0.26), 0, 1) * (enemy.type === 'boss' ? 0.26 : 0.12) : 1;
+    const recoilT = clamp(enemy.hitReaction / (enemy.type === 'boss' ? 0.24 : enemy.type === 'tank' ? 0.20 : 0.17), 0, 1);
+    const tangent = tangentAtDistance(enemy.distance, 1);
+    const recoil = Math.sin(recoilT * Math.PI) * (enemy.type === 'boss' ? 7 : enemy.type === 'tank' ? 6 : 9);
+    const drawX = enemy.x - tangent.x * recoil;
+    const drawY = enemy.y + bob - tangent.y * recoil;
+    const art = enemyArt[enemy.type];
+
+    if (enemy.type === 'boss' || lowHp) {
+      const auraPulse = 0.72 + Math.sin(now * (enemy.type === 'boss' ? 4.2 : 6.8)) * 0.12;
+      g.save();
+      g.globalAlpha = (enemy.type === 'boss' ? 0.20 : 0.12) * auraPulse;
+      const auraRadius = enemy.type === 'boss' ? 84 : enemy.type === 'tank' ? 58 : 48;
+      const aura = g.createRadialGradient(enemy.x, enemy.y, 8, enemy.x, enemy.y, auraRadius);
+      aura.addColorStop(0, lowHp ? '#ff4a22cc' : '#ff9b35aa');
+      aura.addColorStop(1, '#ff3d1200');
+      g.fillStyle = aura;
+      g.beginPath();
+      g.arc(enemy.x, enemy.y, auraRadius, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+
+    if (enemy.type === 'boss') {
+      const ring = 58 + Math.sin(now * 3.2) * 4;
+      g.save();
+      g.globalAlpha = 0.24 + (lowHp ? 0.12 : 0);
+      g.strokeStyle = lowHp ? '#ff5b2e' : '#f1a447';
+      g.lineWidth = 4;
+      g.beginPath();
+      g.ellipse(enemy.x, enemy.y + enemy.radius * 0.74, ring, 13, 0, 0, Math.PI * 2);
+      g.stroke();
+      g.restore();
+    }
+
+    g.save();
+    g.globalAlpha = 0.24;
+    g.fillStyle = '#3e241f';
+    g.beginPath();
+    const shadowW = enemy.type === 'boss' ? 72 : enemy.type === 'tank' ? 58 : enemy.type === 'fast' ? 35 : 44;
+    const shadowH = enemy.type === 'boss' ? 18 : enemy.type === 'tank' ? 15 : enemy.type === 'fast' ? 9 : 11;
+    g.ellipse(enemy.x, enemy.y + enemy.radius * 0.82, shadowW, shadowH, 0, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+
+    if (art) {
+      const size = enemyVisualSize(enemy.type);
+      const lean = enemy.type === 'fast' ? Math.sin(now * 10 + enemy.distance * 0.042) * 0.10
+        : enemy.type === 'boss' ? Math.sin(now * 1.6 + enemy.distance * 0.005) * 0.025
+        : 0;
+      const tankStep = enemy.type === 'tank'
+        ? Math.pow(Math.max(0, Math.sin(now * 4.5 + enemy.distance * 0.025)), 6)
+        : 0;
+      const bossLurch = enemy.type === 'boss'
+        ? Math.pow(Math.max(0, Math.sin(now * 2.8 + enemy.distance * 0.012)), 4)
+        : 0;
+      const fastDive = enemy.type === 'fast'
+        ? Math.sin(now * 8.5 + enemy.distance * 0.055) * 3.6
+        : 0;
+      const artYOffset = enemyVisualYOffset(enemy.type);
+      g.save();
+      g.translate(drawX, drawY + artYOffset + fastDive + tankStep * 2.5 + bossLurch * 2.2);
+      g.rotate(lean);
+      const heavyX = 1 + tankStep * 0.035 + bossLurch * 0.025;
+      const heavyY = 1 - tankStep * 0.035 - bossLurch * 0.018;
+      g.scale(
+        hitPulse * breathe * rageBeat * spawnScale * heavyX,
+        hitPulse / breathe * rageBeat * spawnScale * heavyY
+      );
+      if (flash) g.filter = 'brightness(1.62) saturate(1.12)';
+      else if (lowHp) g.filter = enemy.type === 'boss'
+        ? 'saturate(1.42) contrast(1.12) drop-shadow(0 0 7px rgba(255,70,25,.65))'
+        : 'saturate(1.26) contrast(1.06)';
+      else if (enemy.type === 'boss') g.filter = 'saturate(1.10) contrast(1.04)';
+      g.drawImage(art, -size / 2, -size / 2, size, size);
+      g.restore();
+      drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 116 : enemy.type === 'tank' ? 82 : enemy.type === 'fast' ? 72 : 74), enemy.hp, enemy.maxHp, enemy.type);
+      return;
+    }
+
+    if (assetSheet) {
+      const bossScale = enemy.type === 'boss' ? 1.28 : 1;
+      g.save();
+      g.translate(drawX, drawY);
+      g.scale(hitPulse * bossScale * breathe * rageBeat * spawnScale, bossScale * hitPulse / breathe * rageBeat * spawnScale);
+      if (enemy.type === 'fast') g.filter = 'hue-rotate(245deg) saturate(.95)';
+      if (enemy.type === 'tank') g.filter = 'hue-rotate(165deg) saturate(.82) brightness(.95)';
+      if (enemy.type === 'boss') g.filter = 'hue-rotate(32deg) saturate(1.25) brightness(1.02)';
+      if (flash) g.filter = (g.filter && g.filter !== 'none' ? g.filter + ' ' : '') + 'brightness(1.55)';
+      drawSprite(g, 'monster', -40, -40, 80, 80);
+      g.restore();
+      drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 86 : 58), enemy.hp, enemy.maxHp, enemy.type);
+      return;
+    }
+
+    const cfg = enemy.type === 'fast'
+      ? { body: '#a768e8', edge: '#7040a9' }
+      : enemy.type === 'tank'
+        ? { body: '#68a8d7', edge: '#3d708f' }
+        : enemy.type === 'boss'
+          ? { body: '#d9a13a', edge: '#8e5d1c' }
+          : { body: '#e9685a', edge: '#9b3c36' };
+    g.save();
+    g.translate(drawX, drawY);
+    g.scale(rageBeat * spawnScale, rageBeat * spawnScale);
+    g.fillStyle = flash ? '#fff5aa' : cfg.body;
+    g.strokeStyle = cfg.edge;
+    g.lineWidth = enemy.type === 'boss' ? 7 : 5;
+    g.beginPath();
+    g.arc(0, 0, enemy.radius, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.restore();
+    drawHpLabel(g, enemy.x, enemy.y - (enemy.type === 'boss' ? 86 : 58), enemy.hp, enemy.maxHp, enemy.type);
+  }
+
+  function drawHpLabel(g, x, y, hp, maxHp = hp, type = 'normal') {
+    const ratio = clamp(maxHp > 0 ? hp / maxHp : 0, 0, 1);
+    const width = type === 'boss' ? 116 : type === 'tank' ? 84 : type === 'fast' ? 68 : 76;
+    const height = type === 'boss' ? 12 : 9;
+    const text = String(Math.max(0, Math.ceil(hp)));
+
+    g.save();
+    roundRect(g, x - width / 2 - 3, y - height / 2 - 3, width + 6, height + 6, height);
+    g.fillStyle = 'rgba(49,31,27,.86)';
+    g.fill();
+
+    if (ratio > 0) {
+      roundRect(g, x - width / 2, y - height / 2, width * ratio, height, height / 2);
+      g.fillStyle = ratio <= 0.35 ? '#ff4938' : ratio <= 0.65 ? '#ffb13f' : '#7ed957';
+      g.fill();
+      g.globalAlpha = 0.45;
+      roundRect(g, x - width / 2 + 2, y - height / 2 + 1, Math.max(0, width * ratio - 4), Math.max(2, height * 0.34), height / 3);
+      g.fillStyle = '#fff';
+      g.fill();
+      g.globalAlpha = 1;
+    }
+
+    g.font = type === 'boss'
+      ? '900 18px Arial Rounded MT Bold, Arial, sans-serif'
+      : '900 15px Arial Rounded MT Bold, Arial, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'bottom';
+    g.lineWidth = 4;
+    g.strokeStyle = 'rgba(59,34,28,.94)';
+    g.strokeText(text, x, y - height / 2 - 5);
+    g.fillStyle = '#fff8d7';
+    g.fillText(text, x, y - height / 2 - 5);
+    g.restore();
+  }
+
+  function createBurst(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const speed = 70 + Math.random() * 120;
+      const life = 0.42 + Math.random() * 0.28;
+      effects.push({
+        x, y, color,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        life,
+        maxLife: life,
+        size: 3 + Math.random() * 4,
+      });
+    }
+  }
+
+  function showMessage(text) {
+    DOM.floatingMessage.textContent = text;
+    DOM.floatingMessage.classList.remove('show');
+    void DOM.floatingMessage.offsetWidth;
+    DOM.floatingMessage.classList.add('show');
+  }
+
+  // Small, locally synthesized event samples (no external network, no long-lived
+  // oscillators). Cached AudioBuffers and restrained levels replace harsh beep tones.
+  // The outcome is intentionally testable; subjective listening remains a QA task.
+  function makeSoundBuffer(profile) {
+    const sampleRate = 22050;
+    const count = Math.ceil(profile.duration * sampleRate);
+    const buffer = audioContext.createBuffer(1, count, sampleRate);
+    const samples = buffer.getChannelData(0);
+    let phase = 0, filteredNoise = 0, seed = 19777;
+    for (let i = 0; i < count; i++) {
+      const t = i / sampleRate, p = t / profile.duration;
+      const glide = profile.start * Math.pow(profile.end / profile.start, p);
+      phase += Math.PI * 2 * glide / sampleRate;
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const white = (seed / 2147483648) - 1;
+      filteredNoise = filteredNoise * .64 + white * .36;
+      const attack = Math.min(1, t / .006);
+      const decay = Math.pow(1 - p, 1.9);
+      const body = Math.sin(phase) + .20 * Math.sin(phase * 2) + .065 * Math.sin(phase * 3);
+      let sample = (body * (1 - profile.noise * .55) + filteredNoise * profile.noise)
+        * attack * decay;
+      if (profile.notes) for (const [at, length, hz] of profile.notes) {
+        const age = t - at;
+        if (age >= 0 && age < length) {
+          const local = age / length;
+          const envelope = Math.min(1, age / .012) * Math.pow(1 - local, 1.4);
+          sample += (Math.sin(2 * Math.PI * hz * age) + .13 * Math.sin(4 * Math.PI * hz * age))
+            * envelope * .44;
+        }
+      }
+      samples[i] = Math.max(-.94, Math.min(.94, sample * .68));
+    }
+    return buffer;
+  }
+
+  function unlockAudio() {
+    if (!soundEnabled) return;
+    audioUnlocked = true;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      audioContext ||= new AudioContextClass();
+      if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    } catch (_) {}
+  }
+
+  function playSound(name, strength = 1) {
+    // No audio autoplay: the first touch must unlock the sound context.
+    if (!soundEnabled || !audioUnlocked || soundVoices >= 10) return;
+    const profile = SOUND_PROFILES[name];
+    if (!profile) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      audioContext ||= new AudioContextClass();
+      if (audioContext.state === 'suspended') {
+        // Initial browser resume is asynchronous. Keep this one requested
+        // feedback event, instead of silently losing the first tap's sound.
+        audioContext.resume().then(() => {
+          if (soundEnabled && audioContext.state === 'running') playSound(name, strength);
+        }).catch(() => {});
+        return;
+      }
+      const now = audioContext.currentTime;
+      if (now - (soundLastPlayed[name] ?? -Infinity) < profile.cooldown) return;
+      soundLastPlayed[name] = now;
+      if (!soundBuffers.has(name)) soundBuffers.set(name, makeSoundBuffer(profile));
+      const source = audioContext.createBufferSource();
+      const volume = audioContext.createGain();
+      source.buffer = soundBuffers.get(name);
+      volume.gain.value = Math.min(.18, profile.gain * strength);
+      source.connect(volume);
+      volume.connect(audioContext.destination);
+      soundVoices++;
+      source.onended = () => {
+        soundVoices = Math.max(0, soundVoices - 1);
+        source.disconnect();
+        volume.disconnect();
+      };
+      source.start(now);
+    } catch (error) {
+      // Sound failure must never prevent a click or change combat results.
+      console.warn('[辣椒小猫咪] 音效不可用', error);
+    }
+  }
+
+  function generateLevel2HardLayout() {
+    // 7x6 全满：42/42 个辣椒，无空位。
+    // 保留地狱关卡约束，同时把横/竖同向连续控制在最多 3 个，
+    // 且不存在 2x2 全同向块，避免一大片同方向导致无脑连点。
+    const baseDirections = [
+      ['left', 'left', 'down', 'right', 'right', 'down'],
+      ['up', 'up', 'left', 'left', 'down', 'left'],
+      ['up', 'left', 'down', 'up', 'right', 'down'],
+      ['up', 'up', 'left', 'left', 'down', 'left'],
+      ['right', 'right', 'down', 'up', 'right', 'down'],
+      ['up', 'left', 'down', 'right', 'down', 'down'],
+      ['up', 'up', 'right', 'up', 'right', 'right'],
+    ];
+
+    // Each level has its own reproducible puzzle. A retry MUST NOT silently
+    // reshuffle a level the player was already learning.
+    const random = mulberry32(20261008 + level * 7919);
+    const directions = baseDirections.map(row => row.slice());
+    const isMixed = board => {
+      for (let r = 0; r < 7; r++) {
+        let run = 1;
+        for (let c = 1; c < 6; c++) {
+          run = board[r][c] === board[r][c - 1] ? run + 1 : 1;
+          if (run > 3) return false;
+        }
+      }
+      for (let c = 0; c < 6; c++) {
+        let run = 1;
+        for (let r = 1; r < 7; r++) {
+          run = board[r][c] === board[r - 1][c] ? run + 1 : 1;
+          if (run > 3) return false;
+        }
+      }
+      for (let r = 0; r < 6; r++) for (let c = 0; c < 5; c++) {
+        if (board[r][c] === board[r + 1][c] &&
+            board[r][c] === board[r][c + 1] &&
+            board[r][c] === board[r + 1][c + 1]) return false;
+      }
+      return true;
+    };
+    const toItems = board => board.flatMap((row, r) =>
+      row.map((dir, c) => ({ row: r, col: c, dir, type: 'normal' }))
+    );
+    // Build on a verified hard template: accept a direction change only when
+    // the actual production puzzle evaluator certifies it still has a path.
+    // Variation is about new reasoning, never random unplayable arrangements.
+    let accepted = 0;
+    for (let trial = 0; trial < 1000 && accepted < 12; trial++) {
+      const cell = Math.floor(random() * 42);
+      const row = Math.floor(cell / 6), col = cell % 6;
+      if (directions[row][col] !== baseDirections[row][col]) continue;
+      const newDir = DIR_NAMES[Math.floor(random() * 4)];
+      if (newDir === directions[row][col]) continue;
+      directions[row][col] = newDir;
+      if (!isMixed(directions)) {
+        directions[row][col] = baseDirections[row][col];
+        continue;
+      }
+      const puzzle = evaluatePuzzleLayout(toItems(directions));
+      if (!puzzle.solvable || puzzle.initialAvailable > LEVEL2_HELL.maxInitialAvailable ||
+          puzzle.directionEntropy < LEVEL2_HELL.minDirectionEntropy ||
+          puzzle.unlockDepth < LEVEL2_HELL.minUnlockDepth ||
+          puzzle.avgEarlyChoices > LEVEL2_HELL.maxEarlyChoices) {
+        directions[row][col] = baseDirections[row][col];
+      } else {
+        accepted++;
+      }
+    }
+    if (accepted < 6) console.warn('[辣椒小猫咪] 棋盘可行变体偏少', { level, accepted });
+    const variant = (level - 2) % 4;
+    const flipX = variant === 1 || variant === 3;
+    const flipY = variant === 2 || variant === 3;
+    const flipDirX = dir => dir === 'left' ? 'right' : (dir === 'right' ? 'left' : dir);
+    const flipDirY = dir => dir === 'up' ? 'down' : (dir === 'down' ? 'up' : dir);
+
+    const layout = [];
+    for (let row = 0; row < directions.length; row++) {
+      for (let col = 0; col < directions[row].length; col++) {
+        let targetRow = row;
+        let targetCol = col;
+        let dir = directions[row][col];
+
+        if (flipX) {
+          targetCol = BOARD.cols - 1 - targetCol;
+          dir = flipDirX(dir);
+        }
+        if (flipY) {
+          targetRow = BOARD.rows - 1 - targetRow;
+          dir = flipDirY(dir);
+        }
+
+        layout.push({ row: targetRow, col: targetCol, dir, type: 'normal' });
+      }
+    }
+
+    return layout;
+  }
+
+  function directionPlacementPenalty(occupied, row, col, dir) {
+    let score = 0;
+    const getDir = (r, c) => occupied.get(cellKey(r, c))?.dir || null;
+    const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for (const [dr, dc] of neighbors) {
+      if (getDir(row + dr, col + dc) === dir) score += 3;
+      if (getDir(row + dr, col + dc) === dir && getDir(row + dr * 2, col + dc * 2) === dir) score += 12;
+    }
+    for (const top of [row - 1, row]) {
+      for (const left of [col - 1, col]) {
+        if (top < 0 || left < 0) continue;
+        const cells = [[top, left], [top + 1, left], [top, left + 1], [top + 1, left + 1]];
+        let same = 0;
+        for (const [r, c] of cells) {
+          if (r === row && c === col) same++;
+          else if (getDir(r, c) === dir) same++;
+        }
+        if (same >= 3) score += (same - 2) * 6;
+      }
+    }
+    let dirCount = 0;
+    for (const item of occupied.values()) if (item.dir === dir) dirCount++;
+    return score + dirCount * 0.08;
+  }
+
+  function generateSolvableLayout(rows, cols, count, seed) {
+    const random = mulberry32(seed);
+    const occupied = new Map();
+    const result = [];
+    const cells = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells.push({ r, c });
+    shuffle(cells, random);
+
+    let attempts = 0;
+    while (result.length < count && attempts < 3000) {
+      attempts++;
+      const cell = cells.find(c => !occupied.has(cellKey(c.r, c)));
+      if (!cell) break;
+      const candidates = shuffle([...DIR_NAMES], random).filter(dir => {
+        const d = DIRS[dir];
+        let r = cell.r + d.dr;
+        let c = cell.c + d.dc;
+        while (r >= 0 && r < rows && c >= 0 && c < cols) {
+          if (occupied.has(cellKey(r, c))) return false;
+          r += d.dr;
+          c += d.dc;
+        }
+        return true;
+      });
+      if (!candidates.length) {
+        cells.splice(cells.indexOf(cell), 1);
+        continue;
+      }
+      const scored = candidates.map(dir => ({ dir, score: directionPlacementPenalty(occupied, cell.r, cell.c, dir) }));
+      const bestScore = Math.min(...scored.map(item => item.score));
+      const bestDirections = scored.filter(item => Math.abs(item.score - bestScore) < 1e-9);
+      const dir = bestDirections[Math.floor(random() * bestDirections.length)].dir;
+      const item = { row: cell.r, col: cell.c, dir, type: level >= 4 && result.length % 8 === 5 ? 'pierce' : 'normal' };
+      occupied.set(cellKey(cell.r, cell.c), item);
+      result.push(item);
+      cells.splice(cells.indexOf(cell), 1);
+    }
+
+    if (result.length < count) {
+      for (let r = 0; r < rows && result.length < count; r++) {
+        for (let c = 0; c < cols && result.length < count; c++) {
+          if (occupied.has(cellKey(r, c))) continue;
+          let dir = null;
+          if (r === 0) dir = 'up';
+          else if (r === rows - 1) dir = 'down';
+          else if (c === 0) dir = 'left';
+          else if (c === cols - 1) dir = 'right';
+          if (!dir) continue;
+          const item = { row: r, col: c, dir, type: 'normal' };
+          occupied.set(cellKey(r, c), item);
+          result.push(item);
+        }
+      }
+    }
+    return shuffle(result, random);
+  }
+
+  function cellToWorld(row, col) {
+    const width = (BOARD.cols - 1) * BOARD.cell;
+    const height = (BOARD.rows - 1) * BOARD.cell;
+    return {
+      x: BOARD.centerX - width / 2 + col * BOARD.cell,
+      y: BOARD.centerY - height / 2 + row * BOARD.cell,
+    };
+  }
+
+  function cellKey(r, c) { return `${r},${c}`; }
+
+  function buildPathData(points) {
+    const segments = [];
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      segments.push({ a, b, length, start: total });
+      total += length;
+    }
+    return { segments, totalLength: total };
+  }
+
+  function nearestPointOnPath(x, y) {
+    let best = null;
+    for (const seg of PATH.segments) {
+      const abx = seg.b.x - seg.a.x;
+      const aby = seg.b.y - seg.a.y;
+      const lenSq = abx * abx + aby * aby;
+      let t = lenSq === 0 ? 0 : ((x - seg.a.x) * abx + (y - seg.a.y) * aby) / lenSq;
+      t = clamp(t, 0, 1);
+      const px = seg.a.x + abx * t;
+      const py = seg.a.y + aby * t;
+      const offset = Math.hypot(x - px, y - py);
+      const distance = seg.start + seg.length * t;
+      if (!best || offset < best.offset) best = { point: { x: px, y: py }, offset, distance };
+    }
+    return best;
+  }
+
+  function pointAtDistance(distance) {
+    const d = clamp(distance, 0, PATH.totalLength);
+    const seg = PATH.segments.find(s => d <= s.start + s.length) || PATH.segments[PATH.segments.length - 1];
+    const t = seg.length === 0 ? 0 : (d - seg.start) / seg.length;
+    return { x: lerp(seg.a.x, seg.b.x, t), y: lerp(seg.a.y, seg.b.y, t) };
+  }
+
+  function tangentAtDistance(distance, direction = 1) {
+    const d = clamp(distance, 0, PATH.totalLength);
+    const seg = PATH.segments.find(s => d <= s.start + s.length) || PATH.segments[PATH.segments.length - 1];
+    const dx = seg.b.x - seg.a.x;
+    const dy = seg.b.y - seg.a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: dx / len * direction, y: dy / len * direction };
+  }
+
+  function getClearedPepperCount() {
+    return carrots.reduce((count, carrot) => count + (carrot.active ? 0 : 1), 0);
+  }
+
+  
+
+  
+
+  function availableLayoutItems(layout, activeKeys) {
+    const result = [];
+    for (const item of layout) {
+      const key = cellKey(item.row, item.col);
+      if (!activeKeys.has(key)) continue;
+      const d = DIRS[item.dir];
+      let r = item.row + d.dr;
+      let c = item.col + d.dc;
+      let blocked = false;
+      while (r >= 0 && r < BOARD.rows && c >= 0 && c < BOARD.cols) {
+        if (activeKeys.has(cellKey(r, c))) {
+          blocked = true;
+          break;
+        }
+        r += d.dr;
+        c += d.dc;
+      }
+      if (!blocked) result.push(item);
+    }
+    return result;
+  }
+
+  function evaluatePuzzleLayout(layout) {
+    const totalCells = BOARD.rows * BOARD.cols;
+    const density = totalCells > 0 ? layout.length / totalCells : 0;
+    const counts = { up: 0, right: 0, down: 0, left: 0 };
+    layout.forEach(item => { counts[item.dir] = (counts[item.dir] || 0) + 1; });
+
+    let entropy = 0;
+    for (const dir of DIR_NAMES) {
+      const p = layout.length ? counts[dir] / layout.length : 0;
+      if (p > 0) entropy -= p * Math.log2(p);
+    }
+    const directionEntropy = entropy / 2;
+
+    const initialActive = new Set(layout.map(item => cellKey(item.row, item.col)));
+    let layerActive = new Set(initialActive);
+    const layers = [];
+    let solvable = true;
+
+    while (layerActive.size) {
+      const available = availableLayoutItems(layout, layerActive);
+      if (!available.length) {
+        solvable = false;
+        break;
+      }
+      layers.push(available.length);
+      available.forEach(item => layerActive.delete(cellKey(item.row, item.col)));
+    }
+
+    const initialAvailable = layers[0] || 0;
+    const unlockDepth = solvable ? layers.length : 0;
+
+    let sequentialActive = new Set(initialActive);
+    const earlyChoices = [];
+    const maxEarlySteps = Math.min(10, layout.length);
+
+    for (let step = 0; step < maxEarlySteps && sequentialActive.size; step++) {
+      const available = availableLayoutItems(layout, sequentialActive);
+      if (!available.length) break;
+      earlyChoices.push(available.length);
+
+      let best = available[0];
+      let bestNextChoices = Infinity;
+      for (const candidate of available) {
+        const nextActive = new Set(sequentialActive);
+        nextActive.delete(cellKey(candidate.row, candidate.col));
+        const nextChoices = availableLayoutItems(layout, nextActive).length;
+        if (nextChoices < bestNextChoices) {
+          bestNextChoices = nextChoices;
+          best = candidate;
+        }
+      }
+      sequentialActive.delete(cellKey(best.row, best.col));
+    }
+
+    const avgEarlyChoices = earlyChoices.length
+      ? earlyChoices.reduce((sum, n) => sum + n, 0) / earlyChoices.length
+      : 0;
+
+    const densityScore = clamp(density, 0, 1) * 100;
+    const startPressure = layout.length ? (1 - initialAvailable / layout.length) * 100 : 0;
+    const entropyScore = clamp(directionEntropy, 0, 1) * 100;
+    const depthScore = clamp(unlockDepth / 24, 0, 1) * 100;
+    const earlyChoiceScore = clamp((4 - avgEarlyChoices) / 3, 0, 1) * 100;
+
+    const score =
+      densityScore * 0.20 +
+      startPressure * 0.25 +
+      entropyScore * 0.20 +
+      depthScore * 0.20 +
+      earlyChoiceScore * 0.15;
+
+    return {
+      density,
+      directionCounts: counts,
+      directionEntropy,
+      initialAvailable,
+      unlockDepth,
+      unlockLayers: layers,
+      avgEarlyChoices,
+      earlyChoices,
+      solvable,
+      score: Math.round(score * 10) / 10,
+    };
+  }
+
+  function evaluateLevelDifficulty(layout) {
+    const puzzle = evaluatePuzzleLayout(layout);
+    const profile = getLevelProfile(level);
+    const requiredClearRatio = 1;
+
+    let estimatedTotalHp = 0;
+    const plannedTypes = enemySpawnPlan.length
+      ? enemySpawnPlan.map(item => item.type)
+      : Array.from({ length: totalEnemies }, (_, index) => chooseEnemyType(index));
+
+    for (const type of plannedTypes) {
+      const cfg = enemyConfig(type);
+      const hpBoost = profile ? profile.hpBoost : 1;
+      estimatedTotalHp += Math.round(cfg.hp * (1 + (level - 1) * 0.045) * hpBoost);
+    }
+
+    const hpPerPepper = layout.length ? estimatedTotalHp / layout.length : 0;
+    const hpPressure = clamp(hpPerPepper / 70, 0, 1) * 100;
+    const combatScore = clamp(requiredClearRatio * 78 + hpPressure * 0.22, 0, 100);
+
+    const speedBoost = profile ? profile.speedBoost : 1;
+    const spawnPressure = clamp((1.18 - spawnInterval) / 0.92, 0, 1);
+    const speedPressure = clamp((speedBoost - 1) / 0.48, 0, 1);
+    const timeScore = (spawnPressure * 0.68 + speedPressure * 0.32) * 100;
+
+    const totalTools = toolsLeft.hammer + toolsLeft.freeze + toolsLeft.bomb;
+    const toleranceScore = clamp(100 - totalTools * 10 - lives * 6, 0, 100);
+
+    let progressionIndex = null;
+    let totalScore =
+      puzzle.score * 0.40 +
+      combatScore * 0.40 +
+      timeScore * 0.15 +
+      toleranceScore * 0.05;
+
+    if (profile) {
+      progressionIndex = computeProgressionIndex(profile);
+      const firstIndex = computeProgressionIndex(getLevelProfile(2));
+      const lastIndex = computeProgressionIndex(getLevelProfile(MAX_LEVEL));
+      const t = lastIndex > firstIndex ? (progressionIndex - firstIndex) / (lastIndex - firstIndex) : 0;
+      totalScore = 86 + clamp(t, 0, 1) * 13;
+    }
+
+    const label =
+      totalScore >= 94 ? '噩梦+' :
+      totalScore >= 82 ? '噩梦' :
+      totalScore >= 65 ? '地狱' :
+      totalScore >= 45 ? '困难' :
+      totalScore >= 25 ? '普通' : '简单';
+
+    return {
+      level,
+      totalScore: Math.round(totalScore * 10) / 10,
+      progressionIndex: progressionIndex == null ? null : Math.round(progressionIndex * 100) / 100,
+      label,
+      puzzle,
+      combat: {
+        requiredClearCount: profile ? profile.requiredClearCount : Math.ceil(layout.length * requiredClearRatio),
+        requiredClearRatio,
+        estimatedTotalHp,
+        hpPerPepper: Math.round(hpPerPepper * 10) / 10,
+        score: Math.round(combatScore * 10) / 10,
+      },
+      pacing: profile ? {
+        waveClearThresholds: getWaveClearThresholds(),
+        bossClearThresholds: getBossClearThresholds(profile.bossCount),
+        bossSpeedRatio: Math.round(getBossSpeedRatio(level) * 1000) / 1000,
+      } : null,
+      time: {
+        spawnInterval,
+        speedBoost,
+        enemySpeedScale: ENEMY_SPEED_SCALE,
+        openingThinkTime: OPENING_THINK_TIME,
+        score: Math.round(timeScore * 10) / 10,
+      },
+      tolerance: {
+        lives,
+        totalTools,
+        score: Math.round(toleranceScore * 10) / 10,
+      },
+    };
+  }
+
+  function validateAdvancedLevelDifficulty(report, profile) {
+    const p = report.puzzle;
+    const failures = [];
+
+    if (p.density < 1) failures.push('辣椒未满铺');
+    if (!p.solvable) failures.push('布局存在死局');
+    if (p.initialAvailable > LEVEL2_HELL.maxInitialAvailable) failures.push('初始可行动辣椒过多');
+    if (p.directionEntropy < LEVEL2_HELL.minDirectionEntropy) failures.push('方向混乱度不足');
+    if (p.unlockDepth < LEVEL2_HELL.minUnlockDepth) failures.push('解锁深度不足');
+    if (p.avgEarlyChoices > LEVEL2_HELL.maxEarlyChoices) failures.push('前期可选项过多');
+
+    const expectedRatio = profile.requiredClearCount / profile.pepperCount;
+    if (report.combat.requiredClearRatio + 1e-9 < expectedRatio) failures.push('必须清除比例不足');
+
+    if (level > 2) {
+      const previousProfile = getLevelProfile(level - 1);
+      if (previousProfile && computeProgressionIndex(profile) <= computeProgressionIndex(previousProfile)) {
+        failures.push('本关总难度没有高于前一关');
+      }
+    }
+
+    if (failures.length) {
+      throw new Error(`第 ${level} 关难度模型校验失败：${failures.join('、')}`);
+    }
+  }
+
+  function updateDebugDataset() {
+    const profile = getLevelProfile(level);
+    const next = enemySpawnPlan[spawnPlanIndex] || null;
+    DOM.game.dataset.level = String(level);
+    DOM.game.dataset.totalEnemies = 'unlimited';
+    DOM.game.dataset.spawning = finisherLaunched ? 'closed' : 'continuous';
+    DOM.game.dataset.spawnedEnemies = String(spawnedEnemies);
+    DOM.game.dataset.activePeppers = String(carrots.filter(c => c.active).length);
+    DOM.game.dataset.clearedPeppers = String(getClearedPepperCount());
+    DOM.game.dataset.projectiles = String(projectiles.length);
+    DOM.game.dataset.activeEnemies = String(enemies.filter(e => e.active).length);
+    DOM.game.dataset.state = gameState;
+    DOM.game.dataset.board = `${BOARD.rows}x${BOARD.cols}`;
+    DOM.game.dataset.availablePeppers = String(carrots.filter(c => c.active && !isBlocked(c)).length);
+    DOM.game.dataset.difficultyScore = difficultyReport ? String(difficultyReport.totalScore) : '';
+    DOM.game.dataset.difficultyIndex = difficultyReport?.progressionIndex == null ? '' : String(difficultyReport.progressionIndex);
+    DOM.game.dataset.difficultyLabel = difficultyReport ? difficultyReport.label : '';
+    DOM.game.dataset.unlockDepth = difficultyReport ? String(difficultyReport.puzzle.unlockDepth) : '';
+    DOM.game.dataset.requiredClearCount = profile ? String(profile.requiredClearCount) : '';
+    DOM.game.dataset.currentWave = String(currentWave);
+    DOM.game.dataset.nextWaveUnlockAt = next ? String(next.unlockAt) : '';
+    DOM.game.dataset.nextEnemyType = next ? next.type : '';
+    DOM.game.dataset.finisher = finisherReady ? 'ready' : finisherLaunched ? 'launched' : 'none';
+  }
+
+  function showFatalError(error) {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:absolute;inset:35% 8% auto;z-index:99;padding:16px;border-radius:16px;background:#5b251f;color:#fff;font-weight:700;text-align:center;';
+    box.textContent = `游戏启动失败：${error && error.message ? error.message : error}`;
+    DOM.game.appendChild(box);
+  }
+
+  function roundRect(g, x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    g.beginPath();
+    g.moveTo(x + rr, y);
+    g.arcTo(x + w, y, x + w, y + h, rr);
+    g.arcTo(x + w, y + h, x, y + h, rr);
+    g.arcTo(x, y + h, x, y, rr);
+    g.arcTo(x, y, x + w, y, rr);
+    g.closePath();
+  }
+
+  function mulberry32(seed) {
+    return function random() {
+      let t = seed += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function shuffle(array, random = Math.random) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  window.gameDebug = {
+    getState: () => ({
+      level, lives, totalEnemies, spawnedEnemies, defeatedEnemies, gameState,
+      activePeppers: carrots.filter(c => c.active).length,
+      activeEnemies: enemies.filter(e => e.active).length,
+      projectiles: projectiles.length,
+      currentWave,
+      spawnPlanIndex,
+      finisherReady,
+      finisherLaunched,
+      pendingKicks: projectiles.filter(p => p.active && p.mode === 'waitingKick').length,
+      catPhase: catAction ? catAction.kind : 'idle',
+      blockingHintActive: Boolean(blockingHint),
+    }),
+    getPeppers: () => carrots.filter(c => c.active).map(c => ({ row: c.row, col: c.col, dir: c.dir, x: c.x, y: c.y, blocked: isBlocked(c) })),
+    getDifficultyReport: () => difficultyReport ? JSON.parse(JSON.stringify(difficultyReport)) : null,
+    getSpawnPlan: () => enemySpawnPlan.map((item, index) => ({ index, ...item, spawned: index < spawnPlanIndex })),
+    getDifficultyCurve: () => Object.keys(LEVEL_PROGRESSION).map(key => {
+      const levelNumber = Number(key);
+      const profile = getLevelProfile(levelNumber);
+      return {
+        level: levelNumber,
+        index: Math.round(computeProgressionIndex(profile) * 100) / 100,
+        enemyCount: profile.enemyCount,
+        hpBoost: profile.hpBoost,
+        speedBoost: profile.speedBoost,
+        bossSpeedRatio: Math.round(getBossSpeedRatio(levelNumber) * 1000) / 1000,
+        spawnInterval: profile.spawnInterval,
+        requiredClearCount: profile.requiredClearCount,
+        lives: profile.lives,
+        tools: { ...profile.tools },
+        bossCount: profile.bossCount,
+      };
+    }),
+    getWaveState: () => {
+      const next = enemySpawnPlan[spawnPlanIndex] || null;
+      return {
+        cleared: getClearedPepperCount(),
+        currentWave,
+        nextUnlockAt: next ? next.unlockAt : null,
+        nextEnemyType: next ? next.type : null,
+        remainingPlan: Math.max(0, enemySpawnPlan.length - spawnPlanIndex),
+      };
+    },
+    launchFirstAvailable: () => {
+      const c = carrots.find(item => item.active && !isBlocked(item));
+      return c ? launchCarrot(c) : false;
+    },
+    loadLevel,
+  };
+})();
