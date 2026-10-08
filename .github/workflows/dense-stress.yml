@@ -1,0 +1,34 @@
+name: Dense Combat Canvas Benchmark
+on:
+  push:
+    branches: [qa-combat-stress-20261008]
+  workflow_dispatch:
+jobs:
+  dense-stress:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright without downloading Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          CHROME_BIN=$(command -v google-chrome || command -v chromium || true)
+          test -n "$CHROME_BIN"
+          echo "CHROMIUM_EXECUTABLE=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Install CJK font for faithful screenshot
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+      - name: Benchmark baseline against candidate on the same runner
+        run: node tests/stress-benchmark.cjs
+      - name: Preserve before-and-after render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chili-dense-battle-profile
+          path: test-output/stress/
+          retention-days: 14
