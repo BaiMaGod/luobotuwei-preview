@@ -123,7 +123,7 @@ const save = async (page, name) => {
         'canvas buffer too tall: ' + JSON.stringify(canvasSizing));
       assert.ok(canvasSizing.bufferWidth >= canvasSizing.displayWidth * 1.45,
         'canvas resolution too low for a crisp mobile image');
-      assert.ok(await page.evaluate(() => window.__qaGameClears > idleClearCount),
+      assert.ok(await page.evaluate(count => window.__qaGameClears > count, idleClearCount),
         'gameplay has stopped rendering');
       console.log('CANVAS_PIXEL_RATIO ' + width + 'x' + height + ' ' + JSON.stringify(canvasSizing));
 
@@ -217,6 +217,30 @@ const save = async (page, name) => {
       checks.push('Pass: '+width+'x'+height+' assets, pause flow, conclusion bounds and screenshots');
       await context.close();
     }
+    // A second device pixel density catches mobile-retina regressions hidden
+    // by 1x desktop emulation. It must not exceed 2x screen pixels.
+    const retinaContext = await browser.newContext({
+      viewport: { width:390, height:844 }, deviceScaleFactor:2,
+      hasTouch:true, isMobile:true,
+    });
+    const retina = await retinaContext.newPage();
+    retina.on('pageerror', error=>errors.push(error.message));
+    await retina.goto(url);
+    await retina.waitForFunction(()=>document.getElementById('game').dataset.ready==='1');
+    await retina.locator('#startGameButton').tap();
+    const retinaSizing = await retina.locator('#game canvas').evaluate(el=>{
+      const rect=el.getBoundingClientRect();
+      return { bufferWidth:el.width, bufferHeight:el.height,
+        cssWidth:rect.width, cssHeight:rect.height };
+    });
+    assert.ok(Math.abs(retinaSizing.bufferWidth - 2*retinaSizing.cssWidth) <= 2,
+      'Retina game buffer not 2x CSS pixels: '+JSON.stringify(retinaSizing));
+    assert.ok(Math.abs(retinaSizing.bufferHeight - 2*retinaSizing.cssHeight) <= 2,
+      'Retina game height not 2x CSS pixels: '+JSON.stringify(retinaSizing));
+    console.log('RETINA_CANVAS ' + JSON.stringify(retinaSizing));
+    await save(retina, 'retina-game-390x844');
+    checks.push('Pass: 390x844 @2x real backing-pixel match');
+    await retinaContext.close();
     report.checks=checks;
     report.errors=errors;
     fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));

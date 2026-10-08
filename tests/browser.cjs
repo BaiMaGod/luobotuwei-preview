@@ -89,6 +89,10 @@ const server = http.createServer((req, res) => {
     assert.equal((await page.evaluate(() => gameDebug.getState())).activePeppers, 42);
     assert.equal((await page.evaluate(() => gameDebug.getState())).blockingHintActive, true);
     await page.screenshot({ path: path.join(output, 'blocked-tap-hint.png'), fullPage: true });
+    const blockedEvidence = await page.screenshot({type:'jpeg',quality:44,fullPage:true,animations:'disabled'});
+    console.log('BLOCKED_IMAGE_BEGIN');
+    console.log(blockedEvidence.toString('base64'));
+    console.log('BLOCKED_IMAGE_END');
     record('blocked tap highlights the actual obstructing pepper without firing');
 
     await page.waitForFunction(() => testGame.audioStatus().buffered.includes('blocked'));
