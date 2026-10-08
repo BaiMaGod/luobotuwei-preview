@@ -1,5 +1,7 @@
 name: Live Preview Browser QA
 on:
+  push:
+    branches: [main]
   workflow_run:
     workflows: ["Deploy GitHub Pages"]
     types: [completed]
