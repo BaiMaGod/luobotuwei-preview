@@ -54,6 +54,14 @@ jobs:
               await page.locator('#startGameButton').tap();
               assert.equal(await page.locator('#homeScreen').isVisible(),false);
               assert.equal(await page.locator('#game').getAttribute('data-state'),'playing');
+              const measuredCanvas = await page.locator('#game canvas').evaluate(element => {
+                const r=element.getBoundingClientRect();
+                return { physicalWidth:element.width, physicalHeight:element.height, width:r.width, height:r.height };
+              });
+              assert.ok(measuredCanvas.physicalWidth <= measuredCanvas.width * 2 + 2,
+                'Live canvas backing too large '+JSON.stringify(measuredCanvas));
+              assert.ok(measuredCanvas.physicalHeight <= measuredCanvas.height * 2 + 2,
+                'Live canvas backing too tall '+JSON.stringify(measuredCanvas));
               await page.screenshot({path:'live-qa/game.png',fullPage:true,animations:'disabled'});
               const pepper=await page.evaluate(()=>gameDebug.getPeppers().find(p=>!p.blocked));
               assert.ok(pepper,'Unblocked chili in live game');
@@ -65,6 +73,18 @@ jobs:
               await page.screenshot({path:'live-qa/pause.png',fullPage:true,animations:'disabled'});
               await page.locator('#resumeButton').tap();
               assert.equal(await page.locator('#game').getAttribute('data-state'),'playing');
+              // Touch a truly obstructed level-2 chili and ensure the feedback
+              // is displayed without accidentally removing a single pepper.
+              await page.evaluate(() => gameDebug.loadLevel(2));
+              const blocked = await page.evaluate(() => gameDebug.getPeppers().find(p => p.blocked));
+              assert.ok(blocked, 'Level 2 needs an obstructed pepper');
+              const blockedBox = await page.locator('#game canvas').boundingBox();
+              await page.touchscreen.tap(
+                blockedBox.x + blocked.x / 900 * blockedBox.width,
+                blockedBox.y + blocked.y / 1600 * blockedBox.height);
+              assert.equal((await page.evaluate(() => gameDebug.getState())).blockingHintActive,true);
+              assert.equal((await page.evaluate(() => gameDebug.getState())).activePeppers,42);
+              await page.screenshot({path:'live-qa/blocked.png',fullPage:true,animations:'disabled'});
               for(const type of ['win','loss']){
                 await page.evaluate(type=>{
                   const modal=document.getElementById('resultModal');
@@ -84,7 +104,7 @@ jobs:
               }
               assert.deepEqual(errors,[]);
               console.log('PASS live Pages URL',url);
-              console.log('PASS live homepage freeze, start, gameplay touch and pause/resume');
+              console.log('PASS live homepage, scaled canvas, blocked-tap hint, gameplay touch and pause/resume');
               console.log('PASS live AVIF assets, aspect ratio, result bounds and screenshot evidence');
             } finally { await browser.close(); }
           })().catch(e=>{console.error(e);process.exitCode=1;});

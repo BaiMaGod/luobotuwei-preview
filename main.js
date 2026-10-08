@@ -334,6 +334,7 @@ const W = 900;
   let finisherReady = false;
   let finisherLaunched = false;
   let catHitTimer = 0;
+  let blockingHint = null;
   let difficultyReport = null;
   let enemySpawnPlan = [];
   let spawnPlanIndex = 0;
@@ -493,12 +494,22 @@ const W = 900;
 
   function resizeCanvas() {
     if (!canvas || !ctx) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
+    // Do not draw a 1800x3200 backing buffer only to downscale it into a
+    // roughly 390x693 CSS game on retina phones. We keep 900x1600 LOGIC space
+    // and use at most 2 physical pixels per actual displayed CSS pixel.
+    const rect = DOM.game.getBoundingClientRect();
+    const visualWidth = rect.width || W;
+    const visualHeight = rect.height || H;
+    const density = Math.min(Math.max(window.devicePixelRatio || 1, 1.5), 2);
+    const pixelWidth = Math.max(1, Math.round(visualWidth * density));
+    const pixelHeight = Math.max(1, Math.round(visualHeight * density));
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+    }
     canvas.style.width = '100%';
     canvas.style.height = '100%';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setTransform(pixelWidth / W, 0, 0, pixelHeight / H, 0, 0);
     ctx.imageSmoothingEnabled = true;
     fitResultArt();
   }
@@ -767,6 +778,7 @@ const W = 900;
     finisherReady = false;
     finisherLaunched = false;
     catHitTimer = 0;
+    blockingHint = null;
     lastHintAt = performance.now();
 
     const count = Math.min(14 + level * 2, BOARD.rows * BOARD.cols - 3);
@@ -884,7 +896,9 @@ const W = 900;
     const dt = Math.min((now - lastTime) / 1000, 0.04);
     lastTime = now;
     update(dt, now);
-    render(now);
+    // Home completely covers the game. Paused/finished scenes remain static
+    // underneath their overlays. Avoid expensive invisible full-canvas renders.
+    if (gameState === 'playing') render(now);
     raf = requestAnimationFrame(loop);
   }
 
@@ -900,6 +914,10 @@ const W = 900;
     if (freezeTimer > 0) freezeTimer -= dt;
     if (feverTimer > 0) feverTimer -= dt;
     if (catHitTimer > 0) catHitTimer -= dt;
+    if (blockingHint) {
+      blockingHint.life -= dt;
+      if (blockingHint.life <= 0) blockingHint = null;
+    }
 
     updateCarrotBumps(dt);
     updateSpawner(dt);
@@ -1251,9 +1269,13 @@ const W = 900;
 
   function launchCarrot(carrot) {
     if (!carrot.active || gameState !== 'playing') return false;
-    if (isBlocked(carrot)) {
+    const blocker = findBlockingCarrot(carrot);
+    if (blocker) {
       carrot.bumpTime = 0.24;
-      showMessage('被挡住了！');
+      // Point to the EXACT pepper obstructing the chosen direction.
+      // This short feedback is drawn near the peppers instead of a global
+      // message covering enemies or the road; no damage logic is changed.
+      blockingHint = { source: carrot, target: blocker, life: 0.58, maxLife: 0.58 };
       playSound('blocked');
       return false;
     }
@@ -1391,17 +1413,21 @@ const W = 900;
     finisherReady = ready;
   }
 
-  function isBlocked(carrot) {
+  function findBlockingCarrot(carrot) {
     const d = DIRS[carrot.dir];
     let r = carrot.row + d.dr;
     let c = carrot.col + d.dc;
     while (r >= 0 && r < BOARD.rows && c >= 0 && c < BOARD.cols) {
       const other = carrotByCell.get(cellKey(r, c));
-      if (other && other.active) return true;
+      if (other && other.active) return other;
       r += d.dr;
       c += d.dc;
     }
-    return false;
+    return null;
+  }
+
+  function isBlocked(carrot) {
+    return Boolean(findBlockingCarrot(carrot));
   }
 
   function toggleTool(name) {
@@ -1457,15 +1483,19 @@ const W = 900;
     });
     const remaining = carrots.length - getClearedPepperCount();
     const remainingEnemies = enemies.filter(e => e.active).length;
-    DOM.waveLabel.textContent = finisherLaunched
+    const waveText = finisherLaunched
       ? `终结椒清场 · 剩余怪物 ${remainingEnemies}`
       : `辣椒 ${remaining} / ${carrots.length} · 已击退 ${defeatedEnemies}`;
-    DOM.comboLabel.textContent = feverTimer > 0 ? `🔥${Math.ceil(feverTimer)}` : `×${combo}`;
+    if (DOM.waveLabel.textContent !== waveText) DOM.waveLabel.textContent = waveText;
+    const comboText = feverTimer > 0 ? `🔥${Math.ceil(feverTimer)}` : `×${combo}`;
+    if (DOM.comboLabel.textContent !== comboText) DOM.comboLabel.textContent = comboText;
     const comboBoard = DOM.comboLabel.parentElement;
     const comboVisible = combo >= 2 || feverTimer > 0;
-    comboBoard?.classList.toggle('visible', comboVisible);
-    comboBoard?.classList.toggle('hot', comboVisible);
-    comboBoard?.setAttribute('aria-hidden', String(!comboVisible));
+    if (comboBoard && comboBoard.classList.contains('visible') !== comboVisible) {
+      comboBoard.classList.toggle('visible', comboVisible);
+      comboBoard.classList.toggle('hot', comboVisible);
+      comboBoard.setAttribute('aria-hidden', String(!comboVisible));
+    }
   }
 
   function render(now) {
@@ -1487,6 +1517,8 @@ const W = 900;
       }
       drawChili(ctx, carrot.x, carrot.y, DIRS[carrot.dir].angle, scale, carrot.type === 'pierce');
     }
+
+    if (blockingHint) drawBlockingHint(ctx, blockingHint, now);
 
     for (const projectile of projectiles) {
       if (!projectile.active) continue;
@@ -1527,6 +1559,41 @@ const W = 900;
     }
     ctx.globalAlpha = 1;
     if (catAction) drawKickingCat(ctx);
+  }
+
+  function drawBlockingHint(g, hint, now) {
+    if (!hint.source.active || !hint.target.active) return;
+    const fade = Math.min(1, hint.life / 0.17);
+    const pulse = 1 + Math.sin(now * 0.024) * 0.045;
+    const sx = hint.source.baseX, sy = hint.source.baseY;
+    const tx = hint.target.baseX, ty = hint.target.baseY;
+    const dx = tx - sx, dy = ty - sy;
+    const distance = Math.hypot(dx, dy) || 1;
+    const nx = dx / distance, ny = dy / distance;
+    g.save();
+    g.globalAlpha = fade * 0.86;
+    g.strokeStyle = '#ffeb94';
+    g.lineWidth = 5;
+    g.lineCap = 'round';
+    g.shadowBlur = 9;
+    g.shadowColor = '#d95a17';
+    g.setLineDash([12, 9]);
+    g.beginPath();
+    g.moveTo(sx + nx * 37, sy + ny * 37);
+    g.lineTo(tx - nx * 37, ty - ny * 37);
+    g.stroke();
+    g.setLineDash([]);
+    g.lineWidth = 5;
+    g.strokeStyle = '#ffb739';
+    g.beginPath();
+    g.arc(tx, ty, 42 * pulse, 0, Math.PI * 2);
+    g.stroke();
+    g.strokeStyle = '#fff4b1';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(tx, ty, 47 * pulse, 0, Math.PI * 2);
+    g.stroke();
+    g.restore();
   }
 
   function drawFinisherAura(g, x, y, now, waiting) {
@@ -2739,6 +2806,7 @@ const W = 900;
       finisherLaunched,
       pendingKicks: projectiles.filter(p => p.active && p.mode === 'waitingKick').length,
       catPhase: catAction ? catAction.kind : 'idle',
+      blockingHintActive: Boolean(blockingHint),
     }),
     getPeppers: () => carrots.filter(c => c.active).map(c => ({ row: c.row, col: c.col, dir: c.dir, x: c.x, y: c.y, blocked: isBlocked(c) })),
     getDifficultyReport: () => difficultyReport ? JSON.parse(JSON.stringify(difficultyReport)) : null,
