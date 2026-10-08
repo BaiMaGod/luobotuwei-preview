@@ -14,10 +14,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Chromium
+      - name: Use preinstalled Chrome for browser QA
         run: |
           npm install --no-save playwright@1.56.1
-          npx playwright install --with-deps chromium
+          CHROME_BIN=$(command -v google-chrome || command -v chromium || true)
+          test -n "$CHROME_BIN"
+          echo "CHROMIUM_EXECUTABLE=$CHROME_BIN" >> "$GITHUB_ENV"
+          "$CHROME_BIN" --version
       - name: Syntax and game rules
         run: |
           node --check main.js
