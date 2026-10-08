@@ -344,6 +344,10 @@ const W = 900;
   let projectiles = [];
   let enemies = [];
   let effects = [];
+  // Existing flame colors are reused unchanged. Only paint setup is cached,
+  // not combat damage, flame positions, animation timing, or sprite artwork.
+  const groundGlowCache = new Map();
+  const flameGradientCache = new Map();
   let catAction = null;
   let catPosition = { ...CAT_HOME };
   let audioContext = null;
@@ -1830,10 +1834,15 @@ const W = 900;
     g.translate(fx.x, fx.y);
     g.globalAlpha = lifeAlpha;
 
-    const groundGlow = g.createRadialGradient(0, 1, 2, 0, 1, fx.width * 1.45);
-    groundGlow.addColorStop(0, fx.finisher ? '#fff5a6cc' : '#ffc24daa');
-    groundGlow.addColorStop(0.45, fx.finisher ? '#ff9d34a8' : '#ff6b2f88');
-    groundGlow.addColorStop(1, '#7f210000');
+    const glowKey = (fx.finisher ? 'f:' : 'n:') + fx.width;
+    let groundGlow = groundGlowCache.get(glowKey);
+    if (!groundGlow) {
+      groundGlow = g.createRadialGradient(0, 1, 2, 0, 1, fx.width * 1.45);
+      groundGlow.addColorStop(0, fx.finisher ? '#fff5a6cc' : '#ffc24daa');
+      groundGlow.addColorStop(0.45, fx.finisher ? '#ff9d34a8' : '#ff6b2f88');
+      groundGlow.addColorStop(1, '#7f210000');
+      groundGlowCache.set(glowKey, groundGlow);
+    }
     g.fillStyle = groundGlow;
     g.beginPath();
     g.ellipse(0, 2, fx.width * 1.35, 8 + fx.width * 0.05, 0, 0, Math.PI * 2);
@@ -1860,11 +1869,20 @@ const W = 900;
       g.globalAlpha = lifeAlpha;
       g.shadowBlur = fx.finisher ? 12 : 8;
       g.shadowColor = fx.finisher ? '#ffd24a' : '#ff6a2b';
-      const flame = g.createLinearGradient(0, 2, 0, -h);
-      flame.addColorStop(0, '#e83b20');
-      flame.addColorStop(0.42, '#ff7a24');
-      flame.addColorStop(0.72, '#ffc33e');
-      flame.addColorStop(1, '#fff2a4');
+      // Animated flame heights change constantly; quarter-pixel buckets
+      // preserve the silhouette and avoid creating a new gradient per lobe
+      // on every frame. The drawn path still uses the precise unrounded h.
+      const gradientHeight = Math.round(h * 4) / 4;
+      let flame = flameGradientCache.get(gradientHeight);
+      if (!flame) {
+        flame = g.createLinearGradient(0, 2, 0, -gradientHeight);
+        flame.addColorStop(0, '#e83b20');
+        flame.addColorStop(0.42, '#ff7a24');
+        flame.addColorStop(0.72, '#ffc33e');
+        flame.addColorStop(1, '#fff2a4');
+        if (flameGradientCache.size >= 160) flameGradientCache.clear();
+        flameGradientCache.set(gradientHeight, flame);
+      }
       g.fillStyle = flame;
       g.beginPath();
       g.moveTo(-w * 0.56, 2);
