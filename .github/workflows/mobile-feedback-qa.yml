@@ -1,0 +1,44 @@
+name: QA Mobile Feedback Staging
+on:
+  push:
+    branches: [qa-mobile-feedback-20261008]
+  workflow_dispatch:
+jobs:
+  mobile-playwright:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Use preinstalled Chrome for browser QA
+        run: |
+          npm install --no-save playwright@1.56.1
+          CHROME_BIN=$(command -v google-chrome || command -v chromium || true)
+          test -n "$CHROME_BIN"
+          echo "CHROMIUM_EXECUTABLE=$CHROME_BIN" >> "$GITHUB_ENV"
+          "$CHROME_BIN" --version
+      - name: Install Chinese fonts for faithful pixel rendering
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+          fc-list :lang=zh family | grep -i 'Noto' | head -5
+      - name: Syntax and game rules
+        run: |
+          node --check main.js
+          node --test tests/logic.test.cjs tests/animation.test.cjs
+      - name: Real touches and progression
+        run: node tests/browser.cjs
+      - name: Viewport canvas and blocked-tap screenshots
+        run: node tests/visual-quality.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-mobile-screenshots
+          path: test-output/
+          retention-days: 10
