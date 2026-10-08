@@ -3,6 +3,11 @@
 
   const DOM = {
     game: document.getElementById('game'),
+    homeScreen: document.getElementById('homeScreen'),
+    startGameButton: document.getElementById('startGameButton'),
+    homeRestartButton: document.getElementById('homeRestartButton'),
+    homeProgress: document.getElementById('homeProgress'),
+    pauseHomeButton: document.getElementById('pauseHomeButton'),
     pauseButton: document.getElementById('pauseButton'),
     muteButton: document.getElementById('muteButton'),
     pauseOverlay: document.getElementById('pauseOverlay'),
@@ -312,6 +317,7 @@ const W = 900;
   let spawnTimer = 0;
   let spawnInterval = 1.1;
   let gameState = 'playing';
+  let maxUnlockedLevel = 1;
   let toolMode = null;
   let toolsLeft = { hammer: 1, freeze: 1, bomb: 1 };
   let freezeTimer = 0;
@@ -430,6 +436,7 @@ const W = 900;
       backgroundCanvas = createBackgroundCanvas();
       bindEvents();
       loadLevel(1);
+      enterHome();
       DOM.game.dataset.ready = '1';
       raf = requestAnimationFrame(loop);
     } catch (error) {
@@ -474,6 +481,14 @@ const W = 900;
     });
     DOM.resumeButton.addEventListener('click', resumeGame);
     DOM.pauseRetryButton.addEventListener('click', () => loadLevel(level));
+    DOM.pauseHomeButton.addEventListener('click', enterHome);
+    DOM.startGameButton.addEventListener('click', () => startFromHome(maxUnlockedLevel));
+    DOM.homeRestartButton.addEventListener('click', () => startFromHome(1));
+    try {
+      const stored = Number(localStorage.getItem('chili-cat:max-level'));
+      if (Number.isInteger(stored) && stored >= 1 && stored <= MAX_LEVEL) maxUnlockedLevel = stored;
+    } catch (_) {}
+    updateHomeProgress();
   }
 
   function resizeCanvas() {
@@ -507,6 +522,50 @@ const W = 900;
     DOM.muteButton.setAttribute('aria-label', soundEnabled ? '关闭音效' : '开启音效');
     DOM.muteButton.setAttribute('aria-pressed', String(!soundEnabled));
     DOM.muteButton.classList.toggle('muted', !soundEnabled);
+  }
+
+
+  function updateHomeProgress() {
+    // The button keeps its arrow node, so only the text node is updated.
+    DOM.startGameButton.firstChild.textContent = maxUnlockedLevel > 1
+      ? '继续第 ' + maxUnlockedLevel + ' 关 '
+      : '开始闯关 ';
+    DOM.homeProgress.textContent = maxUnlockedLevel > 1
+      ? '已解锁第 ' + maxUnlockedLevel + ' 关 · 随时回来继续'
+      : '第 1 关 · 首次守护果园';
+    DOM.homeRestartButton.hidden = maxUnlockedLevel <= 1;
+  }
+
+  function startFromHome(targetLevel = 1) {
+    if (gameState !== 'home') return;
+    unlockAudio();
+    loadLevel(targetLevel);
+    DOM.homeScreen.classList.add('hidden');
+    DOM.game.parentElement.classList.remove('on-home');
+    DOM.game.dataset.screen = 'game';
+    lastTime = performance.now();
+    updateDebugDataset();
+  }
+
+  function enterHome() {
+    // Reset in-flight actions and freeze the enemies; the home screen does not
+    // conceal any running round or silently consume lives.
+    loadLevel(1);
+    gameState = 'home';
+    DOM.homeScreen.classList.remove('hidden');
+    DOM.game.parentElement.classList.add('on-home');
+    DOM.game.dataset.screen = 'home';
+    DOM.pauseOverlay.classList.add('hidden');
+    DOM.resultModal.classList.add('hidden');
+    updateHomeProgress();
+    updateDebugDataset();
+  }
+
+  function unlockLevel(next) {
+    if (next <= maxUnlockedLevel) return;
+    maxUnlockedLevel = Math.min(MAX_LEVEL, next);
+    try { localStorage.setItem('chili-cat:max-level', String(maxUnlockedLevel)); } catch (_) {}
+    updateHomeProgress();
   }
 
   function pauseGame() {
@@ -830,7 +889,7 @@ const W = 900;
   }
 
   function update(dt, now) {
-    if (gameState === 'paused') return;
+    if (gameState === 'paused' || gameState === 'home') return;
     if (gameState !== 'playing') {
       updateEffects(dt);
       return;
@@ -1130,6 +1189,7 @@ const W = 900;
   function finishLevel(won) {
     if (gameState !== 'playing') return;
     gameState = won ? 'won' : 'lost';
+    if (won) unlockLevel(level + 1);
     catAction = null;
     catPosition = { ...CAT_HOME };
     projectiles = projectiles.filter(p => p.mode !== 'waitingKick');

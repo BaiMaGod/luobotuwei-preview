@@ -5,12 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#78c94b" />
   <title>辣椒小猫咪</title>
-  <link rel="stylesheet" href="././styles.css?v=quality-puzzle-audio-20261008" />
+  <link rel="stylesheet" href="././styles.css?v=quality-home-20261008" />
 </head>
 <body>
   <main class="app-shell" id="app">
     <section class="game-card" aria-label="辣椒小猫咪游戏区域">
       <div id="game"></div>
+      <!-- Dedicated home screen: uses existing garden and cat sprites, not a gameplay popup. -->
+      <section class="home-screen" id="homeScreen" aria-label="游戏首页">
+        <div class="home-vignette" aria-hidden="true"></div>
+        <div class="home-top">
+          <div class="home-logo sprite-ui">
+            <h1>辣椒小猫咪</h1>
+            <span>方向解谜 · 果园保卫战</span>
+          </div>
+        </div>
+        <div class="home-center">
+          <div class="home-hero-art sprite-ui" role="img" aria-label="可爱小猫坐在木箱上"></div>
+          <p class="home-slogan">看准方向，一脚踢飞！</p>
+          <div class="home-guide" aria-label="玩法说明">
+            <p><span class="home-guide-index">01</span> 看辣椒尖端，判断方向</p>
+            <p><span class="home-guide-index">02</span> 点击前方没有阻挡的辣椒</p>
+            <p><span class="home-guide-index">03</span> 留下最后一颗金椒清场</p>
+          </div>
+        </div>
+        <div class="home-bottom">
+          <button id="startGameButton" class="home-start" type="button">开始闯关 <span aria-hidden="true">➜</span></button>
+          <p id="homeProgress" class="home-progress">第 1 关 · 首次守护果园</p>
+          <button id="homeRestartButton" class="home-restart" type="button" hidden>从第 1 关开始</button>
+          <div class="home-sound-tip" aria-hidden="true">音效可在游戏中随时关闭</div>
+        </div>
+      </section>
+
 
       <header class="hud">
         <div class="lives-board" id="lives" aria-label="生命值">
@@ -58,6 +84,7 @@
           <p>慢慢看清辣椒的方向，再一脚踢飞！</p>
           <button class="pause-action" id="resumeButton" type="button">继续游戏</button>
           <button class="pause-retry" id="pauseRetryButton" type="button">重玩本关</button>
+          <button class="pause-home" id="pauseHomeButton" type="button">返回首页</button>
         </div>
       </section>
       <section class="modal hidden" id="resultModal" role="dialog" aria-modal="true">
@@ -109,6 +136,6 @@
     </section>
   </main>
 
-  <script src="./main.js?v=quality-puzzle-audio-20261008"></script>
+  <script src="./main.js?v=quality-home-20261008"></script>
 </body>
 </html>
