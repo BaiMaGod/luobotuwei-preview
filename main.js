@@ -3,6 +3,10 @@
 
   const DOM = {
     game: document.getElementById('game'),
+    pauseButton: document.getElementById('pauseButton'),
+    pauseOverlay: document.getElementById('pauseOverlay'),
+    resumeButton: document.getElementById('resumeButton'),
+    pauseRetryButton: document.getElementById('pauseRetryButton'),
     lives: document.getElementById('lives'),
     levelLabel: document.getElementById('levelLabel'),
     waveLabel: document.getElementById('waveLabel'),
@@ -36,6 +40,11 @@ const W = 900;
     tank: './assets/monster-tank.webp',
     boss: './assets/monster-boss.webp',
   });
+  const RESULT_ART_URLS = Object.freeze([
+    './assets/result-frame.avif', './assets/result-win-hero.avif',
+    './assets/result-loss-hero.avif', './assets/result-next.avif',
+    './assets/result-replay.avif',
+  ]);
   const SPRITES = {
     title: [0, 0, 650, 488],
     tutorial: [670, 0, 840, 280],
@@ -379,6 +388,17 @@ const W = 900;
       });
       const loadedEnemyArt = Object.keys(enemyArt).length;
       DOM.game.dataset.enemyArt = loadedEnemyArt === enemyEntries.length ? 'ready' : loadedEnemyArt ? 'partial' : 'fallback';
+      // The conclusion artwork is CSS-based and was previously absent from resource checks.
+      // Decode every approved artwork now, so a broken AVIF can never silently look "tested".
+      const resultArt = await Promise.allSettled(RESULT_ART_URLS.map(loadImage));
+      const failedResultArt = resultArt.flatMap((entry, index) =>
+        entry.status === 'rejected' ? [RESULT_ART_URLS[index]] : []
+      );
+      DOM.game.dataset.resultArt = failedResultArt.length ? 'missing' : 'ready';
+      DOM.resultModal.dataset.art = failedResultArt.length ? 'missing' : 'ready';
+      if (failedResultArt.length) {
+        console.error('[辣椒小猫咪] 结算美术未能解码，禁止视为通过：', failedResultArt);
+      }
 
       validateDifficultyProgression();
       backgroundCanvas = createBackgroundCanvas();
@@ -416,6 +436,9 @@ const W = 900;
     DOM.hammerButton.addEventListener('click', () => toggleTool('hammer'));
     DOM.freezeButton.addEventListener('click', useFreeze);
     DOM.bombButton.addEventListener('click', useBomb);
+    DOM.pauseButton.addEventListener('click', pauseGame);
+    DOM.resumeButton.addEventListener('click', resumeGame);
+    DOM.pauseRetryButton.addEventListener('click', () => loadLevel(level));
   }
 
   function resizeCanvas() {
@@ -427,6 +450,38 @@ const W = 900;
     canvas.style.height = '100%';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = true;
+    fitResultArt();
+  }
+
+  function fitResultArt() {
+    // "scale" is independent from the result-pop transform animation.
+    // Always use the real game viewport instead of brittle breakpoint guesses.
+    if (!DOM.game || !DOM.resultModal) return;
+    if (typeof DOM.resultModal.querySelector !== 'function') return; // headless logic harness has no layout
+    const card = DOM.resultModal.querySelector('.modal-card');
+    if (!card) return;
+    const availableWidth = Math.max(1, DOM.game.clientWidth - 28);
+    const availableHeight = Math.max(1, DOM.game.clientHeight - 68);
+    const factor = Math.max(0.1, Math.min(1, availableWidth / 395, availableHeight / 702));
+    card.style.scale = String(factor);
+    DOM.resultModal.dataset.scale = factor.toFixed(3);
+  }
+
+  function pauseGame() {
+    if (gameState !== 'playing') return;
+    gameState = 'paused';
+    DOM.pauseOverlay.classList.remove('hidden');
+    DOM.pauseButton.setAttribute('aria-expanded', 'true');
+    updateDebugDataset();
+  }
+
+  function resumeGame() {
+    if (gameState !== 'paused') return;
+    gameState = 'playing';
+    DOM.pauseOverlay.classList.add('hidden');
+    DOM.pauseButton.setAttribute('aria-expanded', 'false');
+    lastTime = performance.now();
+    updateDebugDataset();
   }
 
   function createBackgroundCanvas() {
@@ -581,6 +636,8 @@ const W = 900;
     Object.assign(BOARD, advanced ? ADVANCED_BOARD : DEFAULT_BOARD);
 
     gameState = 'playing';
+    DOM.pauseOverlay.classList.add('hidden');
+    DOM.pauseButton.setAttribute('aria-expanded', 'false');
     lives = profile ? profile.lives : 3;
     totalEnemies = profile ? profile.enemyCount : 6 + Math.ceil(level * 0.7);
     spawnedEnemies = 0;
@@ -731,6 +788,7 @@ const W = 900;
   }
 
   function update(dt, now) {
+    if (gameState === 'paused') return;
     if (gameState !== 'playing') {
       updateEffects(dt);
       return;
@@ -1044,6 +1102,7 @@ const W = 900;
     DOM.lifeValue.textContent = String(Math.max(0, lives));
     DOM.primaryResultButton.style.display = won ? '' : 'none';
     DOM.retryButton.textContent = '重玩本关';
+    fitResultArt();
     DOM.resultModal.classList.remove('hidden');
     playTone(won ? 700 : 120, won ? 0.22 : 0.28, won ? 'triangle' : 'sawtooth', 0.055);
   }

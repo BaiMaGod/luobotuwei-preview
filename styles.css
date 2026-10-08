@@ -40,10 +40,12 @@ button { font: inherit; }
 
 .game-card {
   position: relative;
-  width: min(100vw, 480px);
-  height: min(100dvh, 853px);
+  /* Both width and height used to be fixed, so aspect-ratio was ignored
+     on tall mobile devices and the entire 900x1600 game was stretched. */
+  width: min(100%, 480px, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 0.5625));
+  height: auto;
   aspect-ratio: 9 / 16;
-  max-height: 100dvh;
+  max-height: none;
   overflow: hidden;
   isolation: isolate;
   background: #79ca4c;
@@ -1086,4 +1088,129 @@ button { font: inherit; }
   .combo-board #comboLabel { right: 8px; font-size: 14px; }
   .tutorial { width: 90%; }
   .tool-button { width: 80px; }
+}
+
+
+/* Quality pass: center each intact approved illustration and fit it to the ACTUAL
+   9:16 game viewport. This is independent of browser/mobile breakpoints.
+   Never crop the user's transparent AVIFs or replace them with CSS art. */
+.modal[data-result="win"] .modal-card,
+.modal[data-result="loss"] .modal-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  margin: 0;
+  background-size: 395px 702px;
+}
+
+/* Do not hide failed artwork as a supposedly successful visual test. */
+.modal[data-art="missing"]::after {
+  content: "结算美术加载失败，请检查资源";
+  position: absolute;
+  z-index: 40;
+  left: 12%;
+  right: 12%;
+  bottom: 14px;
+  padding: 8px;
+  border-radius: 10px;
+  color: #fff;
+  background: #73241c;
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.pause-trigger {
+  position: absolute;
+  z-index: 18;
+  top: calc(91px + env(safe-area-inset-top));
+  right: 9px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 3px solid #ffeab7;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #669b47, #315c30);
+  box-shadow: 0 4px 0 #72442b, inset 0 2px 0 #a1d271;
+  color: #fff5d0;
+  font-size: 23px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.pause-trigger:active { transform: translateY(2px); }
+.pause-trigger:focus-visible,
+.pause-action:focus-visible,
+.pause-retry:focus-visible { outline: 3px solid white; outline-offset: 3px; }
+.pause-overlay {
+  position: absolute;
+  z-index: 27;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(23, 45, 18, .66);
+  backdrop-filter: blur(7px);
+}
+.pause-overlay.hidden { display: none; }
+.pause-panel {
+  width: min(82%, 330px);
+  padding: 20px 16px 24px;
+  border: 4px solid #f6dea1;
+  border-radius: 26px;
+  background: linear-gradient(175deg,#fff7d7 0%,#f7dfa3 100%);
+  box-shadow: 0 9px 0 #9a6a39,0 22px 36px rgba(15,32,12,.35);
+  text-align: center;
+}
+.pause-art {
+  width: min(100%, 220px);
+  margin: 0 auto;
+  display: block;
+}
+.pause-art .brand-text { font-size: 19px; }
+.pause-panel p {
+  margin: 3px 0 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #75472d;
+}
+.pause-action, .pause-retry {
+  display: block;
+  width: min(100%, 238px);
+  min-height: 46px;
+  margin: 9px auto;
+  border: 3px solid #ffedb9;
+  border-radius: 25px;
+  font-weight: 1000;
+  font-size: 17px;
+  cursor: pointer;
+}
+.pause-action { background: linear-gradient(#ffb34b,#ee6930); color:#fff9da; box-shadow: 0 4px 0 #a84c26; }
+.pause-retry { background: linear-gradient(#81ca5b,#49a344); color:#fff; box-shadow: 0 4px 0 #377837; }
+@media (max-height: 610px) {
+  .pause-trigger { top: calc(78px + env(safe-area-inset-top)); }
+  .pause-panel { padding-top: 12px; padding-bottom: 12px; }
+}
+
+/* Pause character is cropped from the existing approved 1536x1152 sprite sheet,
+   using its native 360x360 cat art; not redrawn or geometrically approximated. */
+.pause-cat-art {
+  width: 118px;
+  height: 118px;
+  margin: -5px auto 1px;
+  background-size: 426.6667% 320%;
+  background-position: 0% 64.3939%;
+  filter: drop-shadow(0 5px 4px rgb(111 67 24 / 20%));
+  animation: pause-cat-float 2.5s ease-in-out infinite alternate;
+}
+.pause-panel p { margin: 0 0 15px; }
+@keyframes pause-cat-float {
+  from { transform: translateY(2px); }
+  to { transform: translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pause-cat-art { animation: none; }
+}
+@media (max-height: 610px) {
+  .pause-cat-art { width: 92px; height: 92px; }
+  .pause-panel p { margin-bottom: 7px; }
 }
