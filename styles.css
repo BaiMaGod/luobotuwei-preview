@@ -1449,3 +1449,17 @@ button { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .home-hero-art,.home-start { animation: none; }
 }
+
+/* Screenshot review: keep the header legible above the cat sprite. The old
+   decorative subtitle was hidden behind the cat's ears in the real capture. */
+.home-logo h1 {
+  top: 27%;
+  font-size: clamp(26px, 8.1vw, 37px);
+  color: #ffe17b;
+  letter-spacing: -.045em;
+  -webkit-text-stroke: .65px #853419;
+  text-shadow: -2.5px -2.5px 0 #7a2d16, 2.5px -2.5px 0 #7a2d16,
+    -2.5px 2.5px 0 #7a2d16, 2.5px 2.5px 0 #7a2d16, 0 4px 0 #4f2215;
+}
+.home-logo span { display: none; }
+.home-guide p { font-size: clamp(11px, 3.4vw, 14px); }
