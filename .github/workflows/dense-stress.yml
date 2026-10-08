@@ -27,9 +27,9 @@ jobs:
         run: |
           node --check main.js
           node --test tests/logic.test.cjs tests/animation.test.cjs
-      - name: Browser: touch actions, boss effects and complete win flow
+      - name: 'Browser: touch actions, boss effects and complete win flow'
         run: node tests/browser.cjs
-      - name: Browser: responsive art, pause and result screens
+      - name: 'Browser: responsive art, pause and result screens'
         run: node tests/visual-quality.cjs
       - name: Benchmark baseline against candidate on the same runner
         run: node tests/stress-benchmark.cjs
