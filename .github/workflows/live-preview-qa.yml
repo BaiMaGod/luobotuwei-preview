@@ -1,0 +1,88 @@
+name: Live Preview Browser QA
+on:
+  workflow_run:
+    workflows: ["Deploy GitHub Pages"]
+    types: [completed]
+  workflow_dispatch:
+jobs:
+  test-live-pages:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Browse the actually deployed Pages URL
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          fs.mkdirSync('live-qa', {recursive:true});
+          (async () => {
+            const browser = await chromium.launch({ headless:true, args:['--disable-dev-shm-usage','--no-zygote'] });
+            try {
+              const page = await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1});
+              const errors = [];
+              page.on('pageerror', e=>errors.push(e.message));
+              page.on('response', response=>{
+                if(response.status()>=400 && !response.url().endsWith('/favicon.ico')) errors.push(response.status()+' '+response.url());
+              });
+              const url='https://baimagod.github.io/luobotuwei-preview/';
+              const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000});
+              assert.equal(response.status(),200,'Pages HTTP status');
+              await page.waitForFunction(()=>document.getElementById('game').dataset.ready==='1',null,{timeout:20000});
+              const assetData=await page.locator('#game').evaluate(el=>({sprite:el.dataset.assets,bg:el.dataset.background,enemy:el.dataset.enemyArt,result:el.dataset.resultArt}));
+              assert.deepEqual(assetData,{sprite:'ready',bg:'ready',enemy:'ready',result:'ready'});
+              const ratio=await page.locator('.game-card').evaluate(el=>{const r=el.getBoundingClientRect();return r.width/r.height});
+              assert.ok(Math.abs(ratio-9/16)<0.001,'Live site portrait aspect ratio');
+              await page.screenshot({path:'live-qa/game.png',fullPage:true,animations:'disabled'});
+              const pepper=await page.evaluate(()=>gameDebug.getPeppers().find(p=>!p.blocked));
+              assert.ok(pepper,'Unblocked chili in live game');
+              const canvas=await page.locator('#game canvas').boundingBox();
+              await page.touchscreen.tap(canvas.x+pepper.x/900*canvas.width,canvas.y+pepper.y/1600*canvas.height);
+              await page.waitForFunction(()=>gameDebug.getState().activePeppers===15,{},{timeout:6000});
+              await page.locator('#pauseButton').tap();
+              assert.equal(await page.locator('#game').getAttribute('data-state'),'paused');
+              await page.screenshot({path:'live-qa/pause.png',fullPage:true,animations:'disabled'});
+              await page.locator('#resumeButton').tap();
+              assert.equal(await page.locator('#game').getAttribute('data-state'),'playing');
+              for(const type of ['win','loss']){
+                await page.evaluate(type=>{
+                  const modal=document.getElementById('resultModal');
+                  modal.dataset.result=type;modal.classList.remove('hidden');
+                  document.getElementById('accuracyValue').textContent='83%';
+                  document.getElementById('bestComboValue').textContent='9';
+                  document.getElementById('lifeValue').textContent=type==='win'?'3':'0';
+                },type);
+                await page.screenshot({path:'live-qa/'+type+'.png',fullPage:true,animations:'disabled'});
+                const bounds=await page.evaluate(()=>{
+                  const p=document.querySelector('.game-card').getBoundingClientRect();
+                  const r=document.querySelector('.modal-card').getBoundingClientRect();
+                  return {left:r.left-p.left,right:p.right-r.right,top:r.top-p.top,bottom:p.bottom-r.bottom};
+                });
+                Object.entries(bounds).forEach(([side,v])=>assert.ok(v>=-1,'Live '+type+' result clipped '+side+': '+v));
+                await page.evaluate(()=>document.getElementById('resultModal').classList.add('hidden'));
+              }
+              assert.deepEqual(errors,[]);
+              console.log('PASS live Pages URL',url);
+              console.log('PASS live gameplay touch and pause/resume');
+              console.log('PASS live AVIF assets, aspect ratio, result bounds and screenshot evidence');
+            } finally { await browser.close(); }
+          })().catch(e=>{console.error(e);process.exitCode=1;});
+          NODE
+      - name: Preserve live site screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-preview-evidence
+          path: live-qa/
+          retention-days: 14
