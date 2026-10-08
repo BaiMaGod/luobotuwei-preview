@@ -44,6 +44,12 @@ const percentile=(list,q)=>list[Math.min(list.length-1,Math.ceil(list.length*q)-
     const errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(()=>{
+      // Baseline and candidate spawn the exact same enemies, sparks and flames.
+      let randomSeed = 0x1a2b3c4d;
+      Math.random = () => {
+        randomSeed = (Math.imul(randomSeed,1664525)+1013904223)>>>0;
+        return randomSeed / 4294967296;
+      };
       // Stable deterministic bench: measured frames are explicitly rendered.
       window.requestAnimationFrame=()=>0;
       window.__stressCounts={gradients:0,radial:0,shadows:0};
@@ -90,15 +96,49 @@ const percentile=(list,q)=>list[Math.min(list.length-1,Math.ceil(list.length*q)-
         minMs:+samples.samples[0].toFixed(3),maxMs:+samples.samples.at(-1).toFixed(3)},
       counters:samples.counters,canvas:samples.canvas,
       errors};
+    // Fidelity guard: identical game state and animation time, compare sampled
+    // *actual backing pixels*, not a visual guess from two screenshots.
+    const pixels = await page.evaluate(()=>{
+      Object.defineProperty(performance, 'now', {configurable:true,value:()=>5000});
+      try { testGame.render(5000); }
+      finally { delete performance.now; }
+      const canvas=document.querySelector('#game canvas');
+      const d=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+      const samples=[];
+      for(let y=0;y<canvas.height;y+=5){
+        for(let x=0;x<canvas.width;x+=5){
+          const i=(y*canvas.width+x)*4;
+          samples.push(d[i],d[i+1],d[i+2],d[i+3]);
+        }
+      }
+      return samples;
+    });
+    results[name].pixelSamples=pixels;
     await page.screenshot({path:path.join(out,name+'-dense-battle.png'),animations:'disabled'});
     await context.close();
   }
   assert.deepEqual(results.baseline.errors,[]);
   assert.deepEqual(results.candidate.errors,[]);
   assert.deepEqual(results.candidate.fixture,results.baseline.fixture);
+  const left=results.baseline.pixelSamples,right=results.candidate.pixelSamples;
+  assert.equal(left.length,right.length);
+  let errorSum=0,meaningfullyDifferent=0;
+  for(let i=0;i<left.length;i++){
+    const d=Math.abs(left[i]-right[i]);
+    errorSum+=d;
+    if(d>20)meaningfullyDifferent++;
+  }
+  const fidelity={meanChannelError:+(errorSum/left.length).toFixed(4),
+    changedChannelsOver20:meaningfullyDifferent,totalChannels:left.length,
+    changePercent:+(meaningfullyDifferent/left.length*100).toFixed(3)};
+  delete results.baseline.pixelSamples;
+  delete results.candidate.pixelSamples;
+  console.log('STRESS_PIXEL_FIDELITY '+JSON.stringify(fidelity));
+  assert.ok(fidelity.meanChannelError<2.5 && fidelity.changePercent<2,
+    'Cached flame gradients visibly differ from the approved original: '+JSON.stringify(fidelity));
   console.log('STRESS_BASELINE '+JSON.stringify(results.baseline));
   console.log('STRESS_CANDIDATE '+JSON.stringify(results.candidate));
-  fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));
+  fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({results,fidelity},null,2));
  }finally{
    if(browser)await browser.close();
    await new Promise(r=>server.close(r));
