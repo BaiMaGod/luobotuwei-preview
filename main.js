@@ -4,6 +4,7 @@
   const DOM = {
     game: document.getElementById('game'),
     pauseButton: document.getElementById('pauseButton'),
+    muteButton: document.getElementById('muteButton'),
     pauseOverlay: document.getElementById('pauseOverlay'),
     resumeButton: document.getElementById('resumeButton'),
     pauseRetryButton: document.getElementById('pauseRetryButton'),
@@ -327,7 +328,6 @@ const W = 900;
   let finisherReady = false;
   let finisherLaunched = false;
   let catHitTimer = 0;
-  let level2LayoutSerial = 0;
   let difficultyReport = null;
   let enemySpawnPlan = [];
   let spawnPlanIndex = 0;
@@ -340,6 +340,32 @@ const W = 900;
   let catAction = null;
   let catPosition = { ...CAT_HOME };
   let audioContext = null;
+  let soundEnabled = true;
+  let audioUnlocked = false;
+  let soundVoices = 0;
+  const soundBuffers = new Map();
+  const soundLastPlayed = Object.create(null);
+  const SOUND_PROFILES = Object.freeze({
+    blocked: { duration: .11, start: 245, end: 117, noise: .12, gain: .10, cooldown: .09 },
+    kick: { duration: .19, start: 390, end: 145, noise: .15, gain: .14, cooldown: .055 },
+    finisher: { duration: .32, start: 760, end: 400, noise: .10, gain: .18, cooldown: .08,
+      notes: [[.09, .13, 990], [.20, .12, 1320]] },
+    hit: { duration: .13, start: 340, end: 170, noise: .32, gain: .085, cooldown: .07 },
+    kill: { duration: .21, start: 520, end: 225, noise: .17, gain: .14, cooldown: .09,
+      notes: [[.07, .11, 785]] },
+    bossSpawn: { duration: .29, start: 123, end: 69, noise: .28, gain: .16, cooldown: .30 },
+    bossKill: { duration: .36, start: 250, end: 65, noise: .36, gain: .17, cooldown: .25,
+      notes: [[.14, .16, 520]] },
+    damage: { duration: .23, start: 222, end: 83, noise: .19, gain: .14, cooldown: .18 },
+    freeze: { duration: .46, start: 950, end: 390, noise: .13, gain: .12, cooldown: .40,
+      notes: [[.13, .22, 1319], [.25, .18, 1568]] },
+    bomb: { duration: .40, start: 158, end: 53, noise: .48, gain: .16, cooldown: .35 },
+    win: { duration: .76, start: 523, end: 523, noise: .025, gain: .17, cooldown: 1,
+      notes: [[.07, .22, 659], [.20, .22, 784], [.34, .36, 1047]] },
+    loss: { duration: .59, start: 311, end: 132, noise: .10, gain: .14, cooldown: 1,
+      notes: [[.14, .27, 247], [.26, .27, 196]] },
+    toolSelect: { duration: .11, start: 580, end: 360, noise: .09, gain: .07, cooldown: .1 },
+  });
   let assetSheet = null;
   let backgroundImage = null;
   let enemyArt = Object.create(null);
@@ -433,10 +459,19 @@ const W = 900;
       loadLevel(level >= MAX_LEVEL ? 1 : level + 1);
     });
     DOM.retryButton.addEventListener('click', () => loadLevel(level));
-    DOM.hammerButton.addEventListener('click', () => toggleTool('hammer'));
-    DOM.freezeButton.addEventListener('click', useFreeze);
-    DOM.bombButton.addEventListener('click', useBomb);
+    DOM.hammerButton.addEventListener('click', () => { unlockAudio(); toggleTool('hammer'); });
+    DOM.freezeButton.addEventListener('click', () => { unlockAudio(); useFreeze(); });
+    DOM.bombButton.addEventListener('click', () => { unlockAudio(); useBomb(); });
     DOM.pauseButton.addEventListener('click', pauseGame);
+    try { soundEnabled = localStorage.getItem('chili-cat:sound-enabled') !== 'false'; } catch (_) {}
+    updateMuteButton();
+    DOM.muteButton.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      updateMuteButton();
+      if (soundEnabled) unlockAudio();
+      try { localStorage.setItem('chili-cat:sound-enabled', String(soundEnabled)); } catch (_) {}
+      if (soundEnabled) playSound('toolSelect');
+    });
     DOM.resumeButton.addEventListener('click', resumeGame);
     DOM.pauseRetryButton.addEventListener('click', () => loadLevel(level));
   }
@@ -465,6 +500,13 @@ const W = 900;
     const factor = Math.max(0.1, Math.min(1, availableWidth / 395, availableHeight / 702));
     card.style.scale = String(factor);
     DOM.resultModal.dataset.scale = factor.toFixed(3);
+  }
+
+  function updateMuteButton() {
+    DOM.muteButton.textContent = soundEnabled ? '♫' : '♪̸';
+    DOM.muteButton.setAttribute('aria-label', soundEnabled ? '关闭音效' : '开启音效');
+    DOM.muteButton.setAttribute('aria-pressed', String(!soundEnabled));
+    DOM.muteButton.classList.toggle('muted', !soundEnabled);
   }
 
   function pauseGame() {
@@ -759,7 +801,7 @@ const W = 900;
         radius: 28,
       });
       createBurst(start.x, start.y, '#ffb13c', 12);
-      playTone(72, 0.18, 'sawtooth', 0.045);
+      playSound('bossSpawn');
     }
   }
 
@@ -960,7 +1002,7 @@ const W = 900;
     combo++;
     comboTimer = 2;
     bestCombo = Math.max(bestCombo, combo);
-    playTone(350 + Math.min(combo, 12) * 34, 0.05, 'sine', 0.035);
+    playSound('hit', Math.min(1.22, .80 + combo * .035));
 
     if (combo === 10 && feverTimer <= 0) {
       feverTimer = 5;
@@ -1000,7 +1042,7 @@ const W = 900;
     enemy.active = false;
     defeatedEnemies++;
     createBurst(enemy.x, enemy.y, finishingHit ? '#ffe47a' : enemy.type === 'tank' ? '#9fd4ff' : enemy.type === 'fast' ? '#b98cff' : '#ff8b75', finishingHit ? 24 : 14);
-    playTone(enemy.type === 'boss' ? 92 : 180, enemy.type === 'boss' ? 0.18 : 0.09, 'sawtooth', enemy.type === 'boss' ? 0.055 : 0.04);
+    playSound(enemy.type === 'boss' ? 'bossKill' : 'kill');
   }
 
   function reachGoal(enemy) {
@@ -1011,7 +1053,7 @@ const W = 900;
     comboTimer = 0;
     catHitTimer = 0.22;
     showMessage('小猫咪受伤！');
-    playTone(90, 0.16, 'square', 0.05);
+    playSound('damage');
   }
 
   function updateCarrotBumps(dt) {
@@ -1104,11 +1146,12 @@ const W = 900;
     DOM.retryButton.textContent = '重玩本关';
     fitResultArt();
     DOM.resultModal.classList.remove('hidden');
-    playTone(won ? 700 : 120, won ? 0.22 : 0.28, won ? 'triangle' : 'sawtooth', 0.055);
+    playSound(won ? 'win' : 'loss');
   }
 
   function onPointerDown(event) {
     if (gameState !== 'playing') return;
+    unlockAudio();
     event.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const x = (event.clientX - rect.left) / rect.width * W;
@@ -1151,7 +1194,7 @@ const W = 900;
     if (isBlocked(carrot)) {
       carrot.bumpTime = 0.24;
       showMessage('被挡住了！');
-      playTone(120, 0.055, 'square', 0.035);
+      playSound('blocked');
       return false;
     }
 
@@ -1227,7 +1270,7 @@ const W = 900;
         finisher: projectile.finisher,
       });
       createBurst(projectile.x - projectile.dir.x * 28, projectile.y - projectile.dir.y * 28, '#fff2a8', 6);
-      playTone(projectile.finisher ? 820 : feverTimer > 0 ? 660 : 520, 0.07, 'triangle', 0.04);
+      playSound(projectile.finisher ? 'finisher' : 'kick');
       if (projectile.finisher) showMessage('🌟 终结椒出击！触碰即秒杀');
     }
     if (action.age >= impactAt + CAT_KICK.recovery) {
@@ -1306,6 +1349,7 @@ const W = 900;
     toolMode = toolMode === name ? null : name;
     updateToolButtons();
     if (toolMode === 'hammer') showMessage('选择一根辣椒移除');
+    playSound('toolSelect');
   }
 
   function useFreeze() {
@@ -1315,7 +1359,7 @@ const W = 900;
     toolMode = null;
     updateToolButtons();
     showMessage('❄️ 冻结 3 秒');
-    playTone(760, 0.15, 'sine', 0.035);
+    playSound('freeze');
   }
 
   function useBomb() {
@@ -1330,7 +1374,7 @@ const W = 900;
       if (enemy.hp <= 0) killEnemy(enemy);
     }
     showMessage('💥 全屏轰炸！');
-    playTone(100, 0.2, 'sawtooth', 0.055);
+    playSound('bomb');
   }
 
   function updateToolButtons() {
@@ -1357,7 +1401,11 @@ const W = 900;
       ? `终结椒清场 · 剩余怪物 ${remainingEnemies}`
       : `辣椒 ${remaining} / ${carrots.length} · 已击退 ${defeatedEnemies}`;
     DOM.comboLabel.textContent = feverTimer > 0 ? `🔥${Math.ceil(feverTimer)}` : `×${combo}`;
-    DOM.comboLabel.parentElement?.classList.toggle('hot', combo > 0 || feverTimer > 0);
+    const comboBoard = DOM.comboLabel.parentElement;
+    const comboVisible = combo >= 2 || feverTimer > 0;
+    comboBoard?.classList.toggle('visible', comboVisible);
+    comboBoard?.classList.toggle('hot', comboVisible);
+    comboBoard?.setAttribute('aria-hidden', String(!comboVisible));
   }
 
   function render(now) {
@@ -2009,25 +2057,93 @@ const W = 900;
     DOM.floatingMessage.classList.add('show');
   }
 
-  function playTone(frequency, duration, type = 'sine', volume = 0.03) {
+  // Small, locally synthesized event samples (no external network, no long-lived
+  // oscillators). Cached AudioBuffers and restrained levels replace harsh beep tones.
+  // The outcome is intentionally testable; subjective listening remains a QA task.
+  function makeSoundBuffer(profile) {
+    const sampleRate = 22050;
+    const count = Math.ceil(profile.duration * sampleRate);
+    const buffer = audioContext.createBuffer(1, count, sampleRate);
+    const samples = buffer.getChannelData(0);
+    let phase = 0, filteredNoise = 0, seed = 19777;
+    for (let i = 0; i < count; i++) {
+      const t = i / sampleRate, p = t / profile.duration;
+      const glide = profile.start * Math.pow(profile.end / profile.start, p);
+      phase += Math.PI * 2 * glide / sampleRate;
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const white = (seed / 2147483648) - 1;
+      filteredNoise = filteredNoise * .64 + white * .36;
+      const attack = Math.min(1, t / .006);
+      const decay = Math.pow(1 - p, 1.9);
+      const body = Math.sin(phase) + .20 * Math.sin(phase * 2) + .065 * Math.sin(phase * 3);
+      let sample = (body * (1 - profile.noise * .55) + filteredNoise * profile.noise)
+        * attack * decay;
+      if (profile.notes) for (const [at, length, hz] of profile.notes) {
+        const age = t - at;
+        if (age >= 0 && age < length) {
+          const local = age / length;
+          const envelope = Math.min(1, age / .012) * Math.pow(1 - local, 1.4);
+          sample += (Math.sin(2 * Math.PI * hz * age) + .13 * Math.sin(4 * Math.PI * hz * age))
+            * envelope * .44;
+        }
+      }
+      samples[i] = Math.max(-.94, Math.min(.94, sample * .68));
+    }
+    return buffer;
+  }
+
+  function unlockAudio() {
+    if (!soundEnabled) return;
+    audioUnlocked = true;
     try {
-      audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-      if (audioContext.state === 'suspended') audioContext.resume();
-      const osc = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      osc.type = type;
-      osc.frequency.value = frequency;
-      gain.gain.setValueAtTime(volume, audioContext.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
-      osc.connect(gain).connect(audioContext.destination);
-      osc.start();
-      osc.stop(audioContext.currentTime + duration);
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      audioContext ||= new AudioContextClass();
+      if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
     } catch (_) {}
   }
 
-  function generateLevel2HardLayout() {
-    level2LayoutSerial++;
+  function playSound(name, strength = 1) {
+    // No audio autoplay: the first touch must unlock the sound context.
+    if (!soundEnabled || !audioUnlocked || soundVoices >= 10) return;
+    const profile = SOUND_PROFILES[name];
+    if (!profile) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      audioContext ||= new AudioContextClass();
+      if (audioContext.state === 'suspended') {
+        // Initial browser resume is asynchronous. Keep this one requested
+        // feedback event, instead of silently losing the first tap's sound.
+        audioContext.resume().then(() => {
+          if (soundEnabled && audioContext.state === 'running') playSound(name, strength);
+        }).catch(() => {});
+        return;
+      }
+      const now = audioContext.currentTime;
+      if (now - (soundLastPlayed[name] ?? -Infinity) < profile.cooldown) return;
+      soundLastPlayed[name] = now;
+      if (!soundBuffers.has(name)) soundBuffers.set(name, makeSoundBuffer(profile));
+      const source = audioContext.createBufferSource();
+      const volume = audioContext.createGain();
+      source.buffer = soundBuffers.get(name);
+      volume.gain.value = Math.min(.18, profile.gain * strength);
+      source.connect(volume);
+      volume.connect(audioContext.destination);
+      soundVoices++;
+      source.onended = () => {
+        soundVoices = Math.max(0, soundVoices - 1);
+        source.disconnect();
+        volume.disconnect();
+      };
+      source.start(now);
+    } catch (error) {
+      // Sound failure must never prevent a click or change combat results.
+      console.warn('[辣椒小猫咪] 音效不可用', error);
+    }
+  }
 
+  function generateLevel2HardLayout() {
     // 7x6 全满：42/42 个辣椒，无空位。
     // 保留地狱关卡约束，同时把横/竖同向连续控制在最多 3 个，
     // 且不存在 2x2 全同向块，避免一大片同方向导致无脑连点。
@@ -2041,18 +2157,73 @@ const W = 900;
       ['up', 'up', 'right', 'up', 'right', 'right'],
     ];
 
-    const variant = level2LayoutSerial % 4;
+    // Each level has its own reproducible puzzle. A retry MUST NOT silently
+    // reshuffle a level the player was already learning.
+    const random = mulberry32(20261008 + level * 7919);
+    const directions = baseDirections.map(row => row.slice());
+    const isMixed = board => {
+      for (let r = 0; r < 7; r++) {
+        let run = 1;
+        for (let c = 1; c < 6; c++) {
+          run = board[r][c] === board[r][c - 1] ? run + 1 : 1;
+          if (run > 3) return false;
+        }
+      }
+      for (let c = 0; c < 6; c++) {
+        let run = 1;
+        for (let r = 1; r < 7; r++) {
+          run = board[r][c] === board[r - 1][c] ? run + 1 : 1;
+          if (run > 3) return false;
+        }
+      }
+      for (let r = 0; r < 6; r++) for (let c = 0; c < 5; c++) {
+        if (board[r][c] === board[r + 1][c] &&
+            board[r][c] === board[r][c + 1] &&
+            board[r][c] === board[r + 1][c + 1]) return false;
+      }
+      return true;
+    };
+    const toItems = board => board.flatMap((row, r) =>
+      row.map((dir, c) => ({ row: r, col: c, dir, type: 'normal' }))
+    );
+    // Build on a verified hard template: accept a direction change only when
+    // the actual production puzzle evaluator certifies it still has a path.
+    // Variation is about new reasoning, never random unplayable arrangements.
+    let accepted = 0;
+    for (let trial = 0; trial < 1000 && accepted < 12; trial++) {
+      const cell = Math.floor(random() * 42);
+      const row = Math.floor(cell / 6), col = cell % 6;
+      if (directions[row][col] !== baseDirections[row][col]) continue;
+      const newDir = DIR_NAMES[Math.floor(random() * 4)];
+      if (newDir === directions[row][col]) continue;
+      directions[row][col] = newDir;
+      if (!isMixed(directions)) {
+        directions[row][col] = baseDirections[row][col];
+        continue;
+      }
+      const puzzle = evaluatePuzzleLayout(toItems(directions));
+      if (!puzzle.solvable || puzzle.initialAvailable > LEVEL2_HELL.maxInitialAvailable ||
+          puzzle.directionEntropy < LEVEL2_HELL.minDirectionEntropy ||
+          puzzle.unlockDepth < LEVEL2_HELL.minUnlockDepth ||
+          puzzle.avgEarlyChoices > LEVEL2_HELL.maxEarlyChoices) {
+        directions[row][col] = baseDirections[row][col];
+      } else {
+        accepted++;
+      }
+    }
+    if (accepted < 6) console.warn('[辣椒小猫咪] 棋盘可行变体偏少', { level, accepted });
+    const variant = (level - 2) % 4;
     const flipX = variant === 1 || variant === 3;
     const flipY = variant === 2 || variant === 3;
     const flipDirX = dir => dir === 'left' ? 'right' : (dir === 'right' ? 'left' : dir);
     const flipDirY = dir => dir === 'up' ? 'down' : (dir === 'down' ? 'up' : dir);
 
     const layout = [];
-    for (let row = 0; row < baseDirections.length; row++) {
-      for (let col = 0; col < baseDirections[row].length; col++) {
+    for (let row = 0; row < directions.length; row++) {
+      for (let col = 0; col < directions[row].length; col++) {
         let targetRow = row;
         let targetCol = col;
-        let dir = baseDirections[row][col];
+        let dir = directions[row][col];
 
         if (flipX) {
           targetCol = BOARD.cols - 1 - targetCol;

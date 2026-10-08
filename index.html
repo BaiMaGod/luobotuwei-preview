@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#78c94b" />
   <title>辣椒小猫咪</title>
-  <link rel="stylesheet" href="././styles.css?v=quality-mobile-20261008" />
+  <link rel="stylesheet" href="././styles.css?v=quality-puzzle-audio-20261008" />
 </head>
 <body>
   <main class="app-shell" id="app">
@@ -23,7 +23,7 @@
           <span id="waveLabel">辣椒 16 / 16 · 已击退 0</span>
         </div>
 
-        <div class="combo-board sprite-ui">
+        <div class="combo-board sprite-ui" aria-hidden="true">
           <span id="comboLabel">×0</span>
         </div>
       </header>
@@ -47,6 +47,7 @@
       </nav>
 
       <button class="pause-trigger" id="pauseButton" type="button" aria-label="暂停游戏" aria-expanded="false" aria-controls="pauseOverlay">Ⅱ</button>
+      <button class="mute-trigger" id="muteButton" type="button" aria-label="关闭音效" aria-pressed="false">♫</button>
       <section class="pause-overlay hidden" id="pauseOverlay" role="dialog" aria-modal="true" aria-label="游戏暂停">
         <div class="pause-panel">
           <div class="pause-art hud-center sprite-ui">
@@ -108,6 +109,6 @@
     </section>
   </main>
 
-  <script src="./main.js?v=quality-mobile-20261008"></script>
+  <script src="./main.js?v=quality-puzzle-audio-20261008"></script>
 </body>
 </html>

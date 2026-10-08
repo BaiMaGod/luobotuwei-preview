@@ -185,7 +185,11 @@ button { font: inherit; }
   background-size: 357.2093% 401.3937%;
   background-position: 60.58% 34.68%;
   filter: drop-shadow(0 4px 3px rgb(51 73 30 / 20%));
-  transition: transform .18s, filter .18s;
+  transition: opacity .18s, transform .18s, filter .18s;
+}
+.combo-board:not(.visible) {
+  opacity: 0;
+  transform: translateY(-6px) scale(.93);
 }
 
 .combo-board #comboLabel {
@@ -1214,3 +1218,27 @@ button { font: inherit; }
   .pause-cat-art { width: 92px; height: 92px; }
   .pause-panel p { margin-bottom: 7px; }
 }
+
+/* Audio control: unobtrusive secondary control, not a replacement for game art. */
+.mute-trigger {
+  position: absolute;
+  z-index: 18;
+  top: calc(138px + env(safe-area-inset-top));
+  right: 9px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 3px solid #ffeab7;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #709e55, #3b6639);
+  box-shadow: 0 4px 0 #72442b, inset 0 2px 0 #b5dd86;
+  color: #fff5d0;
+  font-size: 21px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+.mute-trigger.muted { filter: saturate(.48); }
+.mute-trigger:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.mute-trigger:active { transform: translateY(2px); }
+@media (max-height: 610px) { .mute-trigger { top: calc(126px + env(safe-area-inset-top)); } }
