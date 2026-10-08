@@ -23,6 +23,14 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends fonts-noto-cjk
           fc-cache -f
+      - name: Gameplay rules and animation regression
+        run: |
+          node --check main.js
+          node --test tests/logic.test.cjs tests/animation.test.cjs
+      - name: Browser: touch actions, boss effects and complete win flow
+        run: node tests/browser.cjs
+      - name: Browser: responsive art, pause and result screens
+        run: node tests/visual-quality.cjs
       - name: Benchmark baseline against candidate on the same runner
         run: node tests/stress-benchmark.cjs
       - name: Preserve before-and-after render evidence
@@ -30,5 +38,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: chili-dense-battle-profile
-          path: test-output/stress/
+          path: test-output/
           retention-days: 14
